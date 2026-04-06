@@ -589,7 +589,7 @@ function init() {
 
     // 30초마다 Supabase에서 최신 데이터 polling
     setInterval(function() {
-      fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + encodeURIComponent(DB_KEY) + '&select=value', {
+      fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + encodeURIComponent(DB_KEY) + '&select=value&apikey=' + SUPABASE_KEY, {
         method: 'GET',
         headers: sbHeaders()
       }).then(function(r){ return r.json(); }).then(function(rows) {
@@ -611,7 +611,7 @@ function init() {
 }
 
 function loadState(callback) {
-  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + encodeURIComponent(DB_KEY) + '&select=value', {
+  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + encodeURIComponent(DB_KEY) + '&select=value&apikey=' + SUPABASE_KEY, {
     method: 'GET',
     headers: sbHeaders()
   }).then(function(r) {
@@ -654,13 +654,20 @@ function ensureKeys() {
   if (!S.rules) S.rules = [];
 }
 
-function sbHeaders() {
-  return {
-    'apikey': SUPABASE_KEY,
-    'Authorization': 'Bearer ' + SUPABASE_KEY,
+function sbHeaders(extra) {
+  var h = {
     'Content-Type': 'application/json',
-    'Prefer': 'resolution=merge-duplicates,return=minimal'
+    'Prefer': 'return=minimal'
   };
+  // Publishable key (sb_publishable_...) 또는 legacy anon key 둘 다 지원
+  if (SUPABASE_KEY.startsWith('sb_publishable_')) {
+    h['Authorization'] = 'Bearer ' + SUPABASE_KEY;
+  } else {
+    h['apikey'] = SUPABASE_KEY;
+    h['Authorization'] = 'Bearer ' + SUPABASE_KEY;
+  }
+  if (extra) Object.keys(extra).forEach(function(k){ h[k] = extra[k]; });
+  return h;
 }
 
 function saveState() {
@@ -668,7 +675,7 @@ function saveState() {
   // upsert 방식 (key 컬럼에 unique constraint 필요 - 없으면 DELETE+INSERT)
   var val = JSON.stringify(S);
   // 먼저 있는지 확인
-  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + encodeURIComponent(DB_KEY), {
+  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + encodeURIComponent(DB_KEY) + '&apikey=' + SUPABASE_KEY, {
     method: 'GET',
     headers: sbHeaders()
   })
