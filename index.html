@@ -197,6 +197,7 @@ select option{background:var(--c2)}
 <div class="nav">
   <button class="nb on" onclick="go('home')">🏠 홈</button>
   <button class="nb" onclick="go('vote')">📋 투표</button>
+  <button class="nb" onclick="go('teams')">🔴 팀별</button>
   <button class="nb" onclick="go('stats')">📊 기록</button>
   <button class="nb" onclick="go('dues')">💰 회비</button>
   <button class="nb" onclick="go('rules')">📜 회칙</button>
@@ -223,6 +224,12 @@ select option{background:var(--c2)}
 <div class="pg" id="pg-vote">
   <!-- 투표 카드들: JS가 날짜순으로 렌더 -->
   <div id="v-all-votes"></div>
+</div>
+
+
+<!-- ══ TEAMS ══ -->
+<div class="pg" id="pg-teams">
+  <div id="teams-content"></div>
 </div>
 
 <div class="pg" id="pg-stats">
@@ -277,8 +284,10 @@ select option{background:var(--c2)}
     <div class="ct">입금 계좌</div>
     <div class="binfo">
       <div>은행: <strong style="color:var(--yel)">카카오뱅크</strong></div>
-      <div>계좌번호: <span class="bnum">3333-06-0015299</span>
-        <button class="cbtn" onclick="copyAcc()">복사</button>
+      <div>예금주: <strong style="color:var(--txt)">전도형</strong></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+        <span class="bnum">3333-06-0015299</span>
+        <button class="cbtn" onclick="copyAcc()" style="padding:6px 14px;font-size:13px">📋 복사</button>
       </div>
     </div>
   </div>
@@ -367,6 +376,13 @@ select option{background:var(--c2)}
       </div>
     </div>
 
+    <!-- 팀 배정 관리 -->
+    <div class="asec">
+      <div class="at">🔴 팀 배정 관리</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:10px">팀원 이름 옆 팀 버튼으로 배정</div>
+      <div id="a-team-assign"></div>
+    </div>
+
     <!-- 기기 등록 관리 -->
     <div class="asec">
       <div class="at">🔒 이름 등록 현황</div>
@@ -409,7 +425,7 @@ select option{background:var(--c2)}
 
 <script>
 var SUPABASE_URL = 'https://httbazqikdcvytytgrba.supabase.co';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGJhenFpa2Rjdnl0eXRncmJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NzEwNjUsImV4cCI6MjA5MTA0NzA2NX0.EJnFH8dWygTwOl8H4Izfh0GsLMRIhZKiW0tIBAAd3Sw';
+var SUPABASE_KEY = 'sb_publishable_DBj3ne1aciWL8cvzE0qJxw_wyvrC9ug';
 var DB_KEY = 'fmv3'; // gamedata 테이블의 key 값
 
 
@@ -430,6 +446,7 @@ var DEF = {
   rulesUpdated: '',
   lastAutoMomDate: '',
   deviceNames: {},
+  memberTeams: {},
   settings: { adminPw: '0009' }
 };
 
@@ -562,8 +579,9 @@ function init() {
 
     // 30초마다 Supabase에서 최신 데이터 polling
     setInterval(function() {
-      fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY + '&select=value', {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+      fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + encodeURIComponent(DB_KEY) + '&select=value', {
+        method: 'GET',
+        headers: sbHeaders()
       }).then(function(r){ return r.json(); }).then(function(rows) {
         if (rows && rows.length > 0 && rows[0].value) {
           var newS = JSON.parse(rows[0].value);
@@ -583,10 +601,13 @@ function init() {
 }
 
 function loadState(callback) {
-  // Supabase에서 공유 데이터 로드
-  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY + '&select=value', {
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-  }).then(function(r){ return r.json(); }).then(function(rows) {
+  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + encodeURIComponent(DB_KEY) + '&select=value', {
+    method: 'GET',
+    headers: sbHeaders()
+  }).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(rows) {
     try {
       if (rows && rows.length > 0 && rows[0].value) {
         S = JSON.parse(rows[0].value);
@@ -613,7 +634,7 @@ function loadState(callback) {
 }
 
 function ensureKeys() {
-  var keys = ['members','votes','comments','matches','momVoters','duesPaid','extraVotes','rules','lastAutoMomDate','deviceNames'];
+  var keys = ['members','votes','comments','matches','momVoters','duesPaid','extraVotes','rules','lastAutoMomDate','deviceNames','memberTeams'];
   for (var i = 0; i < keys.length; i++) {
     if (!S[keys[i]]) S[keys[i]] = cloneObj(DEF[keys[i]]);
   }
@@ -623,28 +644,43 @@ function ensureKeys() {
   if (!S.rules) S.rules = [];
 }
 
+function sbHeaders() {
+  return {
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'Content-Type': 'application/json',
+    'Prefer': 'resolution=merge-duplicates,return=minimal'
+  };
+}
+
 function saveState() {
-  // 로컬 캐시 (빠른 로드용)
   try { localStorage.setItem('fmv3', JSON.stringify(S)); } catch(e) {}
-  // Supabase 저장 (공유 데이터)
-  var body = JSON.stringify({ key: DB_KEY, value: JSON.stringify(S) });
-  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY, {
+  // upsert 방식 (key 컬럼에 unique constraint 필요 - 없으면 DELETE+INSERT)
+  var val = JSON.stringify(S);
+  // 먼저 있는지 확인
+  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + encodeURIComponent(DB_KEY), {
     method: 'GET',
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-  }).then(function(r){ return r.json(); }).then(function(rows) {
-    var method = (rows && rows.length > 0) ? 'PATCH' : 'POST';
-    var url = SUPABASE_URL + '/rest/v1/gamedata' + (method === 'PATCH' ? '?key=eq.' + DB_KEY : '');
-    fetch(url, {
-      method: method,
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: body
-    }).catch(function(e){ console.warn('Supabase save error:', e); });
-  }).catch(function(e){ console.warn('Supabase check error:', e); });
+    headers: sbHeaders()
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(rows) {
+    if (rows && rows.length > 0) {
+      // UPDATE
+      return fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + encodeURIComponent(DB_KEY), {
+        method: 'PATCH',
+        headers: sbHeaders(),
+        body: JSON.stringify({ value: val })
+      });
+    } else {
+      // INSERT
+      return fetch(SUPABASE_URL + '/rest/v1/gamedata', {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({ key: DB_KEY, value: val })
+      });
+    }
+  })
+  .catch(function(e) { console.warn('Supabase save error:', e); });
 }
 
 function cloneObj(o) { return JSON.parse(JSON.stringify(o)); }
@@ -660,6 +696,7 @@ function setText(id, val) { var e = el(id); if (e) e.textContent = val; }
 function renderAll() {
   renderHome();
   renderVote();
+  renderTeams();
   renderStats();
   renderDues();
   renderRules();
@@ -670,6 +707,80 @@ function renderAll() {
 // ══════════════════════════════════════
 // HOME
 // ══════════════════════════════════════
+
+
+var TEAMS = ['흑호', '현무', '주작'];
+var TEAM_COLOR = { '흑호': 'var(--g)', '현무': 'var(--blu)', '주작': 'var(--red)' };
+var TEAM_BG    = { '흑호': 'rgba(0,200,83,.1)', '현무': 'rgba(41,121,255,.1)', '주작': 'rgba(255,23,68,.08)' };
+var TEAM_BRD   = { '흑호': 'rgba(0,200,83,.4)', '현무': 'rgba(41,121,255,.4)', '주작': 'rgba(255,23,68,.35)' };
+
+function renderTeams() {
+  var el2 = el('teams-content');
+  if (!el2) return;
+
+  var mt = S.memberTeams || {};
+  var votes = S.votes || {};
+
+  // 다음 이벤트 기준 votes
+  var nextEvent = getNextEvent();
+  var activeVotes = nextEvent.isExtra ? (nextEvent.ev.votes || {}) : S.votes;
+
+  var html = '';
+  TEAMS.forEach(function(team) {
+    var members = S.members.filter(function(n){ return mt[n] === team; });
+    if (!members.length) {
+      html += '<div class="card" style="margin-bottom:12px;border-color:' + TEAM_BRD[team] + '">' +
+        '<div style="font-weight:700;font-size:16px;color:' + TEAM_COLOR[team] + ';margin-bottom:8px">' + team + '</div>' +
+        '<div style="color:var(--mut);font-size:13px">배정된 팀원 없음</div>' +
+        '</div>';
+      return;
+    }
+
+    var goes   = members.filter(function(n){ return activeVotes[n]==='go'; });
+    var maybes = members.filter(function(n){ return activeVotes[n]==='maybe'; });
+    var nos    = members.filter(function(n){ return activeVotes[n]==='no'; });
+    var none   = members.filter(function(n){ return !activeVotes[n]; });
+
+    function nameChips(arr, color, bg) {
+      return arr.map(function(n){
+        return '<span style="display:inline-block;padding:4px 10px;border-radius:16px;font-size:12px;margin:3px 3px 0 0;' +
+          'background:' + bg + ';color:' + color + '">' + n + '</span>';
+      }).join('');
+    }
+
+    html += '<div class="card" style="margin-bottom:12px;border-color:' + TEAM_BRD[team] + ';background:linear-gradient(135deg,' + TEAM_BG[team] + ',var(--c1))">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+        '<div style="font-weight:700;font-size:17px;color:' + TEAM_COLOR[team] + '">' + team + '</div>' +
+        '<div style="font-size:12px;color:var(--mut)">' + members.length + '명</div>' +
+      '</div>' +
+      (goes.length ?
+        '<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--g);font-weight:700;margin-bottom:4px">✅ 참석 ' + goes.length + '명</div>' +
+        nameChips(goes, 'var(--g)', 'rgba(0,200,83,.15)') + '</div>' : '') +
+      (maybes.length ?
+        '<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--yel);font-weight:700;margin-bottom:4px">🤔 미정 ' + maybes.length + '명</div>' +
+        nameChips(maybes, 'var(--yel)', 'rgba(255,214,0,.12)') + '</div>' : '') +
+      (nos.length ?
+        '<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--red);font-weight:700;margin-bottom:4px">❌ 불참 ' + nos.length + '명</div>' +
+        nameChips(nos, 'var(--red)', 'rgba(255,23,68,.1)') + '</div>' : '') +
+      (none.length ?
+        '<div><div style="font-size:11px;color:var(--mut);font-weight:700;margin-bottom:4px">⬜ 미응답 ' + none.length + '명</div>' +
+        nameChips(none, 'var(--mut)', 'var(--c2)') + '</div>' : '') +
+    '</div>';
+  });
+
+  // 팀 미배정 팀원
+  var unassigned = S.members.filter(function(n){ return !mt[n]; });
+  if (unassigned.length) {
+    html += '<div class="card" style="margin-bottom:12px;border-color:var(--brd)">' +
+      '<div style="font-weight:700;font-size:14px;color:var(--mut);margin-bottom:8px">⬜ 팀 미배정</div>' +
+      unassigned.map(function(n){
+        return '<span style="display:inline-block;padding:4px 10px;border-radius:16px;font-size:12px;margin:3px 3px 0 0;background:var(--c2);color:var(--mut)">' + n + '</span>';
+      }).join('') +
+    '</div>';
+  }
+
+  el2.innerHTML = html || '<div style="color:var(--mut);font-size:13px;text-align:center;padding:30px 0">관리자가 팀을 배정하면 여기에 표시됩니다</div>';
+}
 
 function makeVoteRow(label, color, names) {
   if (!names || names.length === 0) return '';
@@ -1353,6 +1464,29 @@ function renderAdmin() {
   editRules = cloneObj(S.rules || []);
   renderAdminRules();
 
+  // 팀 배정
+  var taEl = el('a-team-assign');
+  if (taEl) {
+    var mt = S.memberTeams || {};
+    taEl.innerHTML = S.members.length ? S.members.map(function(n) {
+      var cur = mt[n] || '';
+      return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--brd)">' +
+        '<span style="flex:1;font-size:14px">' + n + '</span>' +
+        TEAMS.map(function(t) {
+          var active = cur === t;
+          return '<button data-name="' + n + '" data-team="' + t + '" onclick="assignTeam(this)" style="' +
+            'border:1px solid ' + TEAM_BRD[t] + ';border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer;' +
+            'background:' + (active ? TEAM_BG[t] : 'transparent') + ';' +
+            'color:' + (active ? TEAM_COLOR[t] : 'var(--mut)') + ';font-weight:' + (active ? '700' : '400') + '">' +
+            t + '</button>';
+        }).join('') +
+        '<button data-name="' + n + '" data-team="" onclick="assignTeam(this)" style="' +
+          'border:1px solid var(--brd);border-radius:14px;padding:3px 8px;font-size:11px;cursor:pointer;' +
+          'background:' + (cur===''?'var(--brd)':'transparent') + ';color:var(--mut)">없음</button>' +
+      '</div>';
+    }).join('') : '<div style="color:var(--mut);font-size:13px">팀원을 먼저 등록하세요</div>';
+  }
+
   // 이름 등록 현황
   var devEl = el('a-devices');
   if (devEl) {
@@ -1412,6 +1546,19 @@ function removeMember(name) {
 
 
 
+
+
+function assignTeam(btn) {
+  var name = btn.getAttribute('data-name');
+  var team = btn.getAttribute('data-team');
+  if (!S.memberTeams) S.memberTeams = {};
+  if (team) S.memberTeams[name] = team;
+  else delete S.memberTeams[name];
+  saveState();
+  renderAdmin();
+  renderTeams();
+  showToast(team ? (name + ' → ' + team + ' 배정됐습니다') : (name + ' 팀 배정 해제'));
+}
 
 function editDeviceName(btn) {
   var did  = btn.getAttribute('data-did');
@@ -1795,8 +1942,18 @@ function fmtDate(s) {
 }
 
 function copyAcc() {
-  navigator.clipboard.writeText('3333060015299').then(function(){
-    showToast('계좌번호가 복사됐습니다 💳');
+  var text = '카카오뱅크 전도형 3333-06-0015299';
+  navigator.clipboard.writeText(text).then(function(){
+    showToast('📋 카카오뱅크 전도형 3333-06-0015299 복사됐습니다');
+  }).catch(function() {
+    // clipboard API 실패 시 fallback
+    var el2 = document.createElement('textarea');
+    el2.value = text;
+    document.body.appendChild(el2);
+    el2.select();
+    document.execCommand('copy');
+    document.body.removeChild(el2);
+    showToast('📋 카카오뱅크 전도형 3333-06-0015299 복사됐습니다');
   });
 }
 
@@ -1815,7 +1972,7 @@ function go(name) {
   for (var i = 0; i < pgs.length; i++) pgs[i].classList.remove('on');
   for (var i = 0; i < nbs.length; i++) nbs[i].classList.remove('on');
   var pge = el('pg-' + name); if(pge) pge.classList.add('on');
-  var pages = ['home','vote','stats','dues','rules','admin'];
+  var pages = ['home','vote','teams','stats','dues','rules','admin'];
   var idx = pages.indexOf(name);
   if (idx !== -1 && nbs[idx]) nbs[idx].classList.add('on');
   if (name === 'admin' && !admIn) {
