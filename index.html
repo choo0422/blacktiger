@@ -197,7 +197,6 @@ select option{background:var(--c2)}
 <div class="nav">
   <button class="nb on" onclick="go('home')">🏠 홈</button>
   <button class="nb" onclick="go('vote')">📋 투표</button>
-  <button class="nb" onclick="go('teams')">🔴 팀별</button>
   <button class="nb" onclick="go('stats')">📊 기록</button>
   <button class="nb" onclick="go('dues')">💰 회비</button>
   <button class="nb" onclick="go('rules')">📜 회칙</button>
@@ -222,15 +221,26 @@ select option{background:var(--c2)}
 </div>
 
 <div class="pg" id="pg-vote">
+  <!-- 팀별 현황 버튼 -->
+  <div style="margin-bottom:12px">
+    <button onclick="toggleTeamPanel()" id="team-panel-btn"
+      style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--brd);
+        background:var(--c1);color:var(--txt);font-size:14px;font-weight:700;
+        cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+      <span>🔴 팀별 참석현황 보기</span>
+      <span id="team-panel-arrow">▼</span>
+    </button>
+  </div>
+
+  <!-- 팀별 현황 패널 (접힘/펼침) -->
+  <div id="team-panel" style="display:none;margin-bottom:14px">
+    <div id="team-panel-content"></div>
+  </div>
+
   <!-- 투표 카드들: JS가 날짜순으로 렌더 -->
   <div id="v-all-votes"></div>
 </div>
 
-
-<!-- ══ TEAMS ══ -->
-<div class="pg" id="pg-teams">
-  <div id="teams-content"></div>
-</div>
 
 <div class="pg" id="pg-stats">
 
@@ -696,7 +706,6 @@ function setText(id, val) { var e = el(id); if (e) e.textContent = val; }
 function renderAll() {
   renderHome();
   renderVote();
-  renderTeams();
   renderStats();
   renderDues();
   renderRules();
@@ -708,6 +717,87 @@ function renderAll() {
 // HOME
 // ══════════════════════════════════════
 
+
+
+var teamPanelOpen = false;
+
+function toggleTeamPanel() {
+  teamPanelOpen = !teamPanelOpen;
+  var panel = el('team-panel');
+  var arrow = el('team-panel-arrow');
+  var btn   = el('team-panel-btn');
+  if (!panel) return;
+  if (teamPanelOpen) {
+    panel.style.display = 'block';
+    if (arrow) arrow.textContent = '▲';
+    if (btn) btn.style.borderColor = 'var(--g)';
+    renderTeamPanel();
+  } else {
+    panel.style.display = 'none';
+    if (arrow) arrow.textContent = '▼';
+    if (btn) btn.style.borderColor = 'var(--brd)';
+  }
+}
+
+function renderTeamPanel() {
+  var content = el('team-panel-content');
+  if (!content) return;
+
+  var mt = S.memberTeams || {};
+
+  // votes 합산 (정기 + 추가운동)
+  var activeVotes = {};
+  Object.keys(S.votes || {}).forEach(function(n) { activeVotes[n] = S.votes[n]; });
+  var now = new Date();
+  var extras = (S.extraVotes || []).filter(function(e) {
+    return e.active && e.date && new Date(e.date + 'T' + (e.time||'10:00')) > now;
+  }).sort(function(a,b) {
+    return new Date(a.date+'T'+(a.time||'10:00')) - new Date(b.date+'T'+(b.time||'10:00'));
+  });
+  extras.forEach(function(ev) {
+    Object.keys(ev.votes || {}).forEach(function(n) { activeVotes[n] = ev.votes[n]; });
+  });
+
+  var html = '';
+  TEAMS.forEach(function(team) {
+    var members = S.members.filter(function(n){ return mt[n] === team; });
+    if (!members.length) return;
+
+    var goes   = members.filter(function(n){ return activeVotes[n]==='go'; });
+    var maybes = members.filter(function(n){ return activeVotes[n]==='maybe'; });
+    var nos    = members.filter(function(n){ return activeVotes[n]==='no'; });
+    var none   = members.filter(function(n){ return !activeVotes[n]; });
+
+    function chips(arr, color, bg) {
+      return arr.map(function(n){
+        return '<span style="display:inline-block;padding:3px 10px;border-radius:14px;' +
+          'font-size:12px;margin:2px;background:' + bg + ';color:' + color + '">' + n + '</span>';
+      }).join('');
+    }
+
+    html += '<div style="border:1px solid ' + TEAM_BRD[team] + ';border-radius:12px;' +
+      'padding:12px 14px;margin-bottom:10px;background:linear-gradient(135deg,' + TEAM_BG[team] + ',var(--c1))">' +
+      '<div style="font-weight:700;font-size:15px;color:' + TEAM_COLOR[team] + ';margin-bottom:10px">' +
+        team + ' <span style="font-size:12px;color:var(--mut);font-weight:400">' + members.length + '명</span>' +
+      '</div>' +
+      (goes.length ? '<div style="margin-bottom:6px"><span style="font-size:11px;color:var(--g);font-weight:700">✅ 참석 ' + goes.length + '</span><br>' + chips(goes,'var(--g)','rgba(0,200,83,.13)') + '</div>' : '') +
+      (maybes.length ? '<div style="margin-bottom:6px"><span style="font-size:11px;color:var(--yel);font-weight:700">🤔 미정 ' + maybes.length + '</span><br>' + chips(maybes,'var(--yel)','rgba(255,214,0,.12)') + '</div>' : '') +
+      (nos.length ? '<div style="margin-bottom:6px"><span style="font-size:11px;color:var(--red);font-weight:700">❌ 불참 ' + nos.length + '</span><br>' + chips(nos,'var(--red)','rgba(255,23,68,.1)') + '</div>' : '') +
+      (none.length ? '<div><span style="font-size:11px;color:var(--mut);font-weight:700">⬜ 미응답 ' + none.length + '</span><br>' + chips(none,'var(--mut)','var(--c2)') + '</div>' : '') +
+    '</div>';
+  });
+
+  // 미배정 팀원
+  var unassigned = S.members.filter(function(n){ return !mt[n]; });
+  if (unassigned.length) {
+    html += '<div style="border:1px solid var(--brd);border-radius:12px;padding:12px 14px;margin-bottom:10px">' +
+      '<div style="font-size:13px;color:var(--mut);margin-bottom:6px">⬜ 팀 미배정</div>' +
+      chips(unassigned,'var(--mut)','var(--c2)') +
+    '</div>';
+  }
+
+  content.innerHTML = html || '<div style="color:var(--mut);font-size:13px;text-align:center;padding:16px 0">관리자가 팀을 배정하면 표시됩니다</div>';
+}
 
 var TEAMS = ['흑호', '현무', '주작'];
 var TEAM_COLOR = { '흑호': 'var(--g)', '현무': 'var(--blu)', '주작': 'var(--red)' };
@@ -1136,7 +1226,7 @@ function castVote(v) {
   var fri = nextFriday(); fri.setHours(19,0,0,0);
   if (new Date() > fri) { showToast('⏰ 정기운동 투표 마감됐습니다'); return; }
   S.votes[me] = v;
-  saveState(); renderVote(); renderHome(); renderTeams();
+  saveState(); renderVote(); renderHome(); if(teamPanelOpen) renderTeamPanel();
   showToast(v==='go'?'✅ 참석으로 투표했습니다!':v==='maybe'?'🤔 미정으로 투표했습니다':'❌ 불참으로 투표했습니다');
 }
 
@@ -1980,7 +2070,7 @@ function go(name) {
   for (var i = 0; i < pgs.length; i++) pgs[i].classList.remove('on');
   for (var i = 0; i < nbs.length; i++) nbs[i].classList.remove('on');
   var pge = el('pg-' + name); if(pge) pge.classList.add('on');
-  var pages = ['home','vote','teams','stats','dues','rules','admin'];
+  var pages = ['home','vote','stats','dues','rules','admin'];
   var idx = pages.indexOf(name);
   if (idx !== -1 && nbs[idx]) nbs[idx].classList.add('on');
   if (name === 'admin' && !admIn) {
