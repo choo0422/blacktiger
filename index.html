@@ -1334,8 +1334,17 @@ function renderAdmin() {
 
   // 팀원
   setHTML('a-members', S.members.map(function(n){
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--brd)">' +
-      '<span style="font-size:14px">' + n + '</span>' +
+    // 이 이름으로 등록된 기기 찾기
+    var dn = S.deviceNames || {};
+    var regDid = null;
+    Object.keys(dn).forEach(function(k){ if(dn[k]===n) regDid=k; });
+    var isRegistered = !!regDid;
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--brd);gap:6px">' +
+      '<span style="font-size:14px;flex:1">' + n +
+        (isRegistered ? ' <span style="font-size:10px;color:var(--g);background:rgba(0,200,83,.1);padding:1px 6px;border-radius:10px">등록됨</span>' : '') +
+      '</span>' +
+      (isRegistered ?
+        '<button data-did="' + regDid + '" onclick="deleteDeviceName(this)" style="background:var(--yel);color:#000;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer">초기화</button>' : '') +
       '<button style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer" onclick="removeMember(\'' + n + '\')">삭제</button>' +
       '</div>';
   }).join(''));
@@ -1343,6 +1352,33 @@ function renderAdmin() {
   // 회칙
   editRules = cloneObj(S.rules || []);
   renderAdminRules();
+
+  // 이름 등록 현황
+  var devEl = el('a-devices');
+  if (devEl) {
+    var dn = S.deviceNames || {};
+    var devKeys = Object.keys(dn);
+    if (!devKeys.length) {
+      devEl.innerHTML = '<div style="color:var(--mut);font-size:12px;text-align:center;padding:8px 0">등록된 기기 없음</div>';
+    } else {
+      devEl.innerHTML = devKeys.map(function(did) {
+        var name = dn[did];
+        var isMine = did === window._deviceId;
+        return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd)">' +
+          '<div style="flex:1">' +
+            '<span style="font-size:14px;font-weight:500">' + name + '</span>' +
+            (isMine ? ' <span style="font-size:10px;color:var(--blu)">(내 기기)</span>' : '') +
+          '</div>' +
+          '<button data-did="' + did + '" data-name="' + name + '" onclick="editDeviceName(this)" ' +
+            'style="background:var(--c2);color:var(--txt);border:1px solid var(--brd);border-radius:6px;' +
+            'padding:3px 10px;font-size:11px;cursor:pointer">수정</button>' +
+          '<button data-did="' + did + '" onclick="deleteDeviceName(this)" ' +
+            'style="background:var(--yel);color:#000;border:none;border-radius:6px;' +
+            'padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer">초기화</button>' +
+          '</div>';
+      }).join('');
+    }
+  }
 
   // 임시 투표 목록
   renderAdminExtraVotes();
@@ -1375,6 +1411,54 @@ function removeMember(name) {
 }
 
 
+
+
+function editDeviceName(btn) {
+  var did  = btn.getAttribute('data-did');
+  var name = btn.getAttribute('data-name');
+  var newName = prompt('\'' + name + '\'의 이름을 변경할 이름을 입력하세요:', name);
+  if (!newName || !newName.trim() || newName.trim() === name) return;
+  newName = newName.trim();
+
+  // 중복 체크
+  var dn = S.deviceNames || {};
+  var taken = Object.values(dn).filter(function(n){ return n === newName; });
+  if (taken.length) { showToast('⚠️ 이미 사용 중인 이름이에요'); return; }
+
+  // 기존 votes, comments 등에서 이름 변경
+  if (S.votes[name] !== undefined) { S.votes[newName] = S.votes[name]; delete S.votes[name]; }
+  if (S.comments && S.comments['SUNDAY']) {
+    S.comments['SUNDAY'].forEach(function(c){ if(c.author===name) c.author=newName; });
+  }
+  (S.extraVotes||[]).forEach(function(ev){
+    if (ev.votes && ev.votes[name] !== undefined) { ev.votes[newName]=ev.votes[name]; delete ev.votes[name]; }
+    if (ev.comments && ev.comments['_thread']) {
+      ev.comments['_thread'].forEach(function(c){ if(c.author===name) c.author=newName; });
+    }
+  });
+  (S.matches||[]).forEach(function(m){
+    if (m.attendees) m.attendees = m.attendees.map(function(n){ return n===name?newName:n; });
+  });
+  if (S.momVoters && S.momVoters[name]) { S.momVoters[newName]=S.momVoters[name]; delete S.momVoters[name]; }
+
+  // 이름 변경
+  S.deviceNames[did] = newName;
+  if (!S.members.includes(newName) && S.members.includes(name)) {
+    S.members[S.members.indexOf(name)] = newName;
+  }
+
+  // 내 기기면 me도 변경
+  if (did === window._deviceId) {
+    me = newName;
+    localStorage.setItem('fm_me', me);
+    updateNameLbl();
+  }
+
+  saveState();
+  renderAll();
+  renderAdmin();
+  showToast('✅ ' + name + ' → ' + newName + ' 변경됐습니다');
+}
 
 function deleteDeviceName(btn) {
   var did = btn.getAttribute('data-did');
