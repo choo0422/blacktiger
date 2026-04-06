@@ -400,6 +400,11 @@ select option{background:var(--c2)}
 <div class="toast" id="toast"></div>
 
 <script>
+var SUPABASE_URL = 'https://httbazqikdcvytytgrba.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGJhenFpa2Rjdnl0eXRncmJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NzEwNjUsImV4cCI6MjA5MTA0NzA2NX0.EJnFH8dWygTwOl8H4Izfh0GsLMRIhZKiW0tIBAAd3Sw';
+var DB_KEY = 'fmv3'; // gamedata 테이블의 key 값
+
+
 // ══════════════════════════════════════
 // STATE
 // ══════════════════════════════════════
@@ -512,8 +517,11 @@ function tickDeadline() {
   });
 }
 
-async function init() {
-  // 기기 고유 ID 생성 (최초 1회)
+function init() {
+  // body HTML 저장 (로딩 후 복원용)
+  window._bodyHTML = document.body.innerHTML;
+
+  // 기기 고유 ID
   var deviceId = localStorage.getItem('fm_deviceId');
   if (!deviceId) {
     deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
@@ -521,35 +529,82 @@ async function init() {
   }
   window._deviceId = deviceId;
 
-  // 이름은 shared storage의 deviceNames에서 복원
-  // (로컬 캐시도 병행)
   me = localStorage.getItem('fm_me') || '';
   updateNameLbl();
-  await loadState();
-  // shared storage의 deviceNames에서 내 이름 복원 (다른 기기 덮어쓰기 방지)
-  if (window._deviceId && S.deviceNames && S.deviceNames[window._deviceId]) {
-    me = S.deviceNames[window._deviceId];
-    localStorage.setItem('fm_me', me);
+
+  // 로딩 표시
+  document.body.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#080808;color:#00C853;font-family:Noto Sans KR,sans-serif"><div style="font-size:24px;font-weight:700;margin-bottom:16px">⚽ 흑호 매니저</div><div style="font-size:13px;color:#666">데이터 불러오는 중...</div></div>';
+
+  loadState(function() {
+    // 페이지 복원
+    document.body.innerHTML = _bodyHTML;
+
+    // deviceNames에서 내 이름 복원
+    if (window._deviceId && S.deviceNames && S.deviceNames[window._deviceId]) {
+      me = S.deviceNames[window._deviceId];
+      localStorage.setItem('fm_me', me);
+    }
     updateNameLbl();
-  }
-  renderAll();
-  tickDeadline();
-  setInterval(tickDeadline, 30000);
-  setInterval(checkMomExpiry, 300000);
-  duesAlert();
-  setNextDate();
-  if (!me) {
-    setTimeout(function() { openNameModal(true); }, 400);
-  }
+    renderAll();
+    tickDeadline();
+    setInterval(tickDeadline, 30000);
+    setInterval(checkMomExpiry, 300000);
+    duesAlert();
+    if (!me) setTimeout(function() { openNameModal(true); }, 400);
+
+    // 30초마다 Supabase에서 최신 데이터 polling
+    setInterval(function() {
+      fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY + '&select=value', {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+      }).then(function(r){ return r.json(); }).then(function(rows) {
+        if (rows && rows.length > 0 && rows[0].value) {
+          var newS = JSON.parse(rows[0].value);
+          // 내 votes/deviceName은 덮어쓰지 않도록 merge
+          if (me && S.votes[me]) newS.votes[me] = S.votes[me];
+          if (window._deviceId && S.deviceNames && S.deviceNames[window._deviceId]) {
+            if (!newS.deviceNames) newS.deviceNames = {};
+            newS.deviceNames[window._deviceId] = S.deviceNames[window._deviceId];
+          }
+          S = newS;
+          ensureKeys();
+          renderAll();
+        }
+      }).catch(function(){});
+    }, 30000);
+  });
 }
 
-async function loadState() {
-  try {
-    var r = await window.storage.get('fmv3');
-    S = r ? JSON.parse(r.value) : cloneObj(DEF);
-  } catch(e) {
-    S = cloneObj(DEF);
-  }
+function loadState(callback) {
+  // Supabase에서 공유 데이터 로드
+  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY + '&select=value', {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  }).then(function(r){ return r.json(); }).then(function(rows) {
+    try {
+      if (rows && rows.length > 0 && rows[0].value) {
+        S = JSON.parse(rows[0].value);
+        // 로컬도 갱신
+        localStorage.setItem('fmv3', rows[0].value);
+      } else {
+        // Supabase에 데이터 없으면 로컬 캐시 시도
+        var local = localStorage.getItem('fmv3');
+        S = local ? JSON.parse(local) : cloneObj(DEF);
+      }
+    } catch(e) { S = cloneObj(DEF); }
+    ensureKeys();
+    if (callback) callback();
+  }).catch(function(e) {
+    // 네트워크 실패 시 로컬 캐시 사용
+    console.warn('Supabase load failed, using localStorage:', e);
+    try {
+      var local = localStorage.getItem('fmv3');
+      S = local ? JSON.parse(local) : cloneObj(DEF);
+    } catch(e2) { S = cloneObj(DEF); }
+    ensureKeys();
+    if (callback) callback();
+  });
+}
+
+function ensureKeys() {
   var keys = ['members','votes','comments','matches','momVoters','duesPaid','extraVotes','rules','lastAutoMomDate','deviceNames'];
   for (var i = 0; i < keys.length; i++) {
     if (!S[keys[i]]) S[keys[i]] = cloneObj(DEF[keys[i]]);
@@ -560,8 +615,28 @@ async function loadState() {
   if (!S.rules) S.rules = [];
 }
 
-async function saveState() {
-  try { await window.storage.set('fmv3', JSON.stringify(S)); } catch(e) {}
+function saveState() {
+  // 로컬 캐시 (빠른 로드용)
+  try { localStorage.setItem('fmv3', JSON.stringify(S)); } catch(e) {}
+  // Supabase 저장 (공유 데이터)
+  var body = JSON.stringify({ key: DB_KEY, value: JSON.stringify(S) });
+  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY, {
+    method: 'GET',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  }).then(function(r){ return r.json(); }).then(function(rows) {
+    var method = (rows && rows.length > 0) ? 'PATCH' : 'POST';
+    var url = SUPABASE_URL + '/rest/v1/gamedata' + (method === 'PATCH' ? '?key=eq.' + DB_KEY : '');
+    fetch(url, {
+      method: method,
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: body
+    }).catch(function(e){ console.warn('Supabase save error:', e); });
+  }).catch(function(e){ console.warn('Supabase check error:', e); });
 }
 
 function cloneObj(o) { return JSON.parse(JSON.stringify(o)); }
