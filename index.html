@@ -418,6 +418,13 @@ select option{background:var(--c2)}
 <div class="toast" id="toast"></div>
 
 <script>
+
+if (!Array.prototype.find) {
+  Array.prototype.find = function(fn) {
+    for (var i=0; i<this.length; i++) { if (fn(this[i])) return this[i]; }
+  };
+}
+
 var SUPABASE_URL = 'https://httbazqikdcvytytgrba.supabase.co';
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGJhenFpa2Rjdnl0eXRncmJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NzEwNjUsImV4cCI6MjA5MTA0NzA2NX0.EJnFH8dWygTwOl8H4Izfh0GsLMRIhZKiW0tIBAAd3Sw';
 var DB_KEY = 'fmv3'; // gamedata 테이블의 key 값
@@ -537,9 +544,6 @@ function tickDeadline() {
 }
 
 function init() {
-  // body HTML 저장 (로딩 후 복원용)
-  window._bodyHTML = document.body.innerHTML;
-
   // 기기 고유 ID
   var deviceId = localStorage.getItem('fm_deviceId');
   if (!deviceId) {
@@ -551,12 +555,19 @@ function init() {
   me = localStorage.getItem('fm_me') || '';
   updateNameLbl();
 
-  // 로딩 표시
-  document.body.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#080808;color:#00C853;font-family:Noto Sans KR,sans-serif"><div style="font-size:24px;font-weight:700;margin-bottom:16px">⚽ 흑호 매니저</div><div style="font-size:13px;color:#666">데이터 불러오는 중...</div></div>';
+  // 로딩 오버레이 표시
+  var overlay = document.createElement('div');
+  overlay.id = 'loading-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:#080808;display:flex;flex-direction:column;' +
+    'align-items:center;justify-content:center;z-index:9999;font-family:Noto Sans KR,sans-serif';
+  overlay.innerHTML = '<div style="font-size:24px;font-weight:700;color:#00C853;margin-bottom:12px">⚽ 흑호매니저</div>' +
+    '<div style="font-size:13px;color:#666">데이터 불러오는 중...</div>';
+  document.body.appendChild(overlay);
 
   loadState(function() {
-    // 페이지 복원
-    document.body.innerHTML = _bodyHTML;
+    // 로딩 오버레이 제거
+    var ov = document.getElementById('loading-overlay');
+    if (ov) ov.remove();
 
     // deviceNames에서 내 이름 복원
     if (window._deviceId && S.deviceNames && S.deviceNames[window._deviceId]) {
@@ -571,23 +582,24 @@ function init() {
     duesAlert();
     if (!me) setTimeout(function() { openNameModal(true); }, 400);
 
-    // 30초마다 Supabase에서 최신 데이터 polling
+    // 30초마다 polling
     setInterval(function() {
       fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + encodeURIComponent(DB_KEY) + '&select=value&apikey=' + SUPABASE_KEY, {
         method: 'GET',
         headers: sbHeaders()
       }).then(function(r){ return r.json(); }).then(function(rows) {
         if (rows && rows.length > 0 && rows[0].value) {
-          var newS = JSON.parse(rows[0].value);
-          // 내 votes/deviceName은 덮어쓰지 않도록 merge
-          if (me && S.votes[me]) newS.votes[me] = S.votes[me];
-          if (window._deviceId && S.deviceNames && S.deviceNames[window._deviceId]) {
-            if (!newS.deviceNames) newS.deviceNames = {};
-            newS.deviceNames[window._deviceId] = S.deviceNames[window._deviceId];
-          }
-          S = newS;
-          ensureKeys();
-          renderAll();
+          try {
+            var newS = JSON.parse(rows[0].value);
+            if (me && S.votes[me]) newS.votes[me] = S.votes[me];
+            if (window._deviceId && S.deviceNames && S.deviceNames[window._deviceId]) {
+              if (!newS.deviceNames) newS.deviceNames = {};
+              newS.deviceNames[window._deviceId] = S.deviceNames[window._deviceId];
+            }
+            S = newS;
+            ensureKeys();
+            renderAll();
+          } catch(e) {}
         }
       }).catch(function(){});
     }, 30000);
@@ -617,7 +629,7 @@ function loadState(callback) {
     if (callback) callback();
   }).catch(function(e) {
     // 네트워크 실패 시 로컬 캐시 사용
-    console.warn('Supabase load failed, using localStorage:', e);
+    console.warn('Supabase load failed, using localStorage:', e.message || e, 'URL:', SUPABASE_URL);
     try {
       var local = localStorage.getItem('fmv3');
       S = local ? JSON.parse(local) : cloneObj(DEF);
@@ -706,6 +718,9 @@ function renderAll() {
 
 
 
+
+var _teamPanelVotes = {};
+
 function makeTeamPanelHTML(activeVotes) {
   var mt = S.memberTeams || {};
   var html = '';
@@ -738,6 +753,13 @@ function makeTeamPanelHTML(activeVotes) {
   return html;
 }
 
+
+function onTeamBtnClick(btn) {
+  var panelId = btn.getAttribute('data-panel');
+  var btnId   = btn.getAttribute('data-btn');
+  toggleTeamPanel(panelId, btnId);
+}
+
 function toggleTeamPanel(panelId, btnId) {
   var panel = el(panelId);
   var btn   = el(btnId);
@@ -749,19 +771,24 @@ function toggleTeamPanel(panelId, btnId) {
   } else {
     panel.style.display = 'block';
     if (btn) { btn.textContent = '🔴 팀별 참석현황 ▲'; btn.style.borderColor = 'var(--g)'; }
-    // 내용 렌더 (data-votes 속성에서 읽음)
-    var votesJson = panel.getAttribute('data-votes');
-    if (votesJson) {
-      try { panel.innerHTML = makeTeamPanelHTML(JSON.parse(votesJson)); } catch(e){}
+    // panelId로 어떤 투표인지 판단해서 votes 결정
+    var activeVotes = {};
+    if (panelId === 'panel-team-sunday') {
+      // 정기운동 votes
+      Object.keys(S.votes || {}).forEach(function(n) { activeVotes[n] = S.votes[n]; });
+    } else {
+      // 추가운동: panelId = 'panel-team-ev_xxx'
+      var evId = panelId.replace('panel-team-', '');
+      var ev = (S.extraVotes || []).find(function(e) { return e.id === evId; });
+      if (ev && ev.votes) Object.keys(ev.votes).forEach(function(n) { activeVotes[n] = ev.votes[n]; });
     }
+    panel.innerHTML = makeTeamPanelHTML(activeVotes);
   }
 }
 
 function updateTeamPanel(panelId, activeVotes) {
   var panel = el(panelId);
-  if (!panel) return;
-  panel.setAttribute('data-votes', JSON.stringify(activeVotes));
-  if (panel.style.display !== 'none') {
+  if (panel && panel.style.display !== 'none') {
     panel.innerHTML = makeTeamPanelHTML(activeVotes);
   }
 }
@@ -1035,6 +1062,7 @@ function renderSundayVoteCard() {
 
   var groups = renderVoteGroups(goes, maybes, nos);
 
+  _teamPanelVotes['panel-team-sunday'] = S.votes || {};
   return '<div class="card" style="margin-bottom:12px">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
       '<div>' +
@@ -1051,7 +1079,8 @@ function renderSundayVoteCard() {
       '</div>'
     : '') +
     (groups ? groups : '<div style="color:var(--mut);font-size:13px;padding:8px 0">아직 응답이 없습니다</div>') +
-    '<button id="btn-team-sunday" onclick="toggleTeamPanel(\'panel-team-sunday\',\'btn-team-sunday\')" ' +
+    '<button data-panel="panel-team-sunday" data-btn="btn-team-sunday" onclick="onTeamBtnClick(this)" ' +
+      'id="btn-team-sunday" ' +
       'style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--brd);' +
       'background:var(--c1);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px">' +
       '🔴 팀별 참석현황 ▼</button>' +
@@ -1063,12 +1092,6 @@ function renderSundayVoteCard() {
       '<button data-key="SUNDAY" onclick="handlePostComment(this)" style="background:var(--g);color:#000;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">등록</button>' +
     '</div>' +
   '</div>';
-  // 팀별 패널 votes 업데이트 (렌더 후)
-  setTimeout(function(){ updateTeamPanel('panel-team-sunday', (function(){
-    var av={};
-    Object.keys(S.votes||{}).forEach(function(n){av[n]=S.votes[n];});
-    return av;
-  })()); }, 0);
 }
 function renderExtraVoteCard(e) {
   var dl = new Date(e.deadlineDate + 'T' + e.deadlineTime);
@@ -1091,6 +1114,7 @@ function renderExtraVoteCard(e) {
 
   var groups = renderVoteGroups(goes, maybes, nos);
 
+  _teamPanelVotes['panel-team-' + e.id] = e.votes || {};
   return '<div class="card" style="margin-bottom:12px;border-color:rgba(255,214,0,.35)">' +
     '<div style="font-size:10px;color:var(--yel);margin-bottom:6px">📢 추가 운동 투표</div>' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
@@ -1108,7 +1132,8 @@ function renderExtraVoteCard(e) {
       '</div>'
     : '') +
     (groups ? groups : '<div style="color:var(--mut);font-size:13px;padding:8px 0">아직 응답이 없습니다</div>') +
-    '<button id="btn-team-' + e.id + '" onclick="toggleTeamPanel(\'panel-team-' + e.id + '\',\'btn-team-' + e.id + '\')" ' +
+    '<button data-panel="panel-team-' + e.id + '" data-btn="btn-team-' + e.id + '" onclick="onTeamBtnClick(this)" ' +
+      'id="btn-team-' + e.id + '" ' +
       'style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--brd);' +
       'background:var(--c1);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px">' +
       '🔴 팀별 참석현황 ▼</button>' +
@@ -1120,9 +1145,6 @@ function renderExtraVoteCard(e) {
       '<button data-evid="' + e.id + '" onclick="handlePostExtraComment(this)" style="background:var(--g);color:#000;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">등록</button>' +
     '</div>' +
   '</div>';
-  // 팀별 패널 votes 업데이트
-  var _eid = e.id; var _evotes = e.votes || {};
-  setTimeout(function(){ updateTeamPanel('panel-team-' + _eid, _evotes); }, 0);
 }
 function getVoteComments(key, author) {
   var list = S.comments && S.comments[key] ? S.comments[key] : [];
