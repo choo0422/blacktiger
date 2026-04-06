@@ -721,9 +721,21 @@ function renderTeams() {
   var mt = S.memberTeams || {};
   var votes = S.votes || {};
 
-  // 다음 이벤트 기준 votes
-  var nextEvent = getNextEvent();
-  var activeVotes = nextEvent.isExtra ? (nextEvent.ev.votes || {}) : S.votes;
+  // 정기운동 + 모든 활성 추가운동 votes 합산
+  // 각 팀원의 최신 투표를 우선순위: 추가운동(더 빠른 날) > 정기운동
+  var activeVotes = {};
+  // 1) 정기운동 votes 먼저
+  Object.keys(S.votes || {}).forEach(function(n) { activeVotes[n] = S.votes[n]; });
+  // 2) 활성 추가운동 votes로 덮어쓰기 (날짜 빠른 순)
+  var now = new Date();
+  var extras = (S.extraVotes || []).filter(function(e) {
+    return e.active && e.date && new Date(e.date + 'T' + (e.time||'10:00')) > now;
+  }).sort(function(a,b) {
+    return new Date(a.date+'T'+(a.time||'10:00')) - new Date(b.date+'T'+(b.time||'10:00'));
+  });
+  extras.forEach(function(ev) {
+    Object.keys(ev.votes || {}).forEach(function(n) { activeVotes[n] = ev.votes[n]; });
+  });
 
   var html = '';
   TEAMS.forEach(function(team) {
@@ -1119,16 +1131,12 @@ function deleteExtraComment(id, idx) {
 }
 
 function castVote(v) {
+  // 정기운동 전용 투표 (항상 S.votes에 저장)
   if (!me) { openNameModal(false); showToast('이름을 먼저 설정해주세요!'); return; }
-  if (pastDeadline()) { showToast('⏰ 투표 마감 시간이 지났습니다'); return; }
-  var nxt = getNextEvent();
-  if (nxt.isExtra) {
-    // 추가운동이 더 빠를 때 홈의 투표하기는 해당 추가운동으로 연결
-    castExtraVote(nxt.ev.id, v);
-    return;
-  }
+  var fri = nextFriday(); fri.setHours(19,0,0,0);
+  if (new Date() > fri) { showToast('⏰ 정기운동 투표 마감됐습니다'); return; }
   S.votes[me] = v;
-  saveState(); renderVote(); renderHome();
+  saveState(); renderVote(); renderHome(); renderTeams();
   showToast(v==='go'?'✅ 참석으로 투표했습니다!':v==='maybe'?'🤔 미정으로 투표했습니다':'❌ 불참으로 투표했습니다');
 }
 
