@@ -428,6 +428,35 @@ function getWeatherLabel(code) {
   return WMO_CODE[code] || '🌡️ 알수없음';
 }
 
+
+function refreshWeather() {
+  var now = new Date();
+  var extras = (S.extraVotes||[]).filter(function(e){
+    if (!e.active || !e.date) return false;
+    return new Date(e.date+'T'+(e.etime||'12:00')) > now;
+  }).sort(function(a,b){
+    return new Date(a.date+'T'+(a.stime||'10:00')) - new Date(b.date+'T'+(b.stime||'10:00'));
+  });
+  var sun = nextSunday(); sun.setHours(10,0,0,0);
+  var sunEnd = new Date(sun); sunEnd.setHours(12,0,0,0);
+  var sundayActive = sunEnd > now;
+  var weatherGame = null;
+  if (extras.length) {
+    var e0 = extras[0];
+    var e0Start = new Date(e0.date+'T'+(e0.stime||'10:00'));
+    if (!sundayActive || e0Start <= sun) {
+      weatherGame = e0.date;
+    } else if (sundayActive) {
+      var s2 = nextSunday();
+      weatherGame = s2.getFullYear()+'-'+String(s2.getMonth()+1).padStart(2,'0')+'-'+String(s2.getDate()).padStart(2,'0');
+    }
+  } else if (sundayActive) {
+    var s3 = nextSunday();
+    weatherGame = s3.getFullYear()+'-'+String(s3.getMonth()+1).padStart(2,'0')+'-'+String(s3.getDate()).padStart(2,'0');
+  }
+  loadWeather(weatherGame);
+}
+
 function loadWeather(gameDate) {
   var now = new Date();
   var today = now.toISOString().split('T')[0];
@@ -632,7 +661,9 @@ function init() {
   syncSupabase();
   setInterval(syncSupabase, 30000);
 
-  setInterval(function(){ loadWeather(null); }, 1800000); // 30분마다 날씨 갱신
+  // 날씨: 앱 시작 후 1초 뒤 로드, 이후 30분마다 갱신
+  setTimeout(refreshWeather, 1000);
+  setInterval(refreshWeather, 1800000);
 }
 
 function syncSupabase() {
@@ -783,23 +814,7 @@ function renderHome() {
       '</div>';
   }
 
-  // 날씨 로드: 홈배너에 표시되는 운동일과 동일하게
-  var weatherGame = null;
-  if (extras.length) {
-    // 추가운동이 일요일보다 빠르면 추가운동 날짜
-    var e0 = extras[0];
-    var e0Start = new Date(e0.date+'T'+(e0.stime||'10:00'));
-    if (!sundayActive || e0Start <= sun) {
-      weatherGame = e0.date;
-    } else if (sundayActive) {
-      var sunD = nextSunday();
-      weatherGame = sunD.getFullYear()+'-'+String(sunD.getMonth()+1).padStart(2,'0')+'-'+String(sunD.getDate()).padStart(2,'0');
-    }
-  } else if (sundayActive) {
-    var sunD2 = nextSunday();
-    weatherGame = sunD2.getFullYear()+'-'+String(sunD2.getMonth()+1).padStart(2,'0')+'-'+String(sunD2.getDate()).padStart(2,'0');
-  }
-  loadWeather(weatherGame);
+
 }
 
 function renderMomBanner() {
