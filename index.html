@@ -173,6 +173,17 @@ textarea{resize:vertical;min-height:80px}
 <div class="pg on" id="pg-home">
   <div id="h-mom-banner"></div>
   <div id="h-next-banner"></div>
+  <!-- 날씨 카드 -->
+  <div class="card" id="h-weather-card" style="margin-top:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-family:'Noto Sans KR';font-weight:700;font-size:13px;color:var(--mut)">📍 백호풋살장 날씨</div>
+      <div style="font-size:10px;color:var(--mut)" id="h-weather-updated"></div>
+    </div>
+    <!-- 현재 날씨 -->
+    <div id="h-weather-now" style="text-align:center;padding:8px 0;color:var(--mut);font-size:13px">날씨 불러오는 중...</div>
+    <!-- 운동일 날씨 (있을 때만) -->
+    <div id="h-weather-game" style="display:none"></div>
+  </div>
 </div>
 
 <!-- VOTE -->
@@ -388,6 +399,124 @@ textarea{resize:vertical;min-height:80px}
 <div id="toast"></div>
 
 <script>
+var STADIUM_LAT = 37.3817;
+var STADIUM_LNG = 126.7228;
+
+var WMO_CODE = {
+  0:'☀️ 맑음', 1:'🌤️ 대체로맑음', 2:'⛅ 구름조금', 3:'☁️ 흐림',
+  45:'🌫️ 안개', 48:'🌫️ 짙은안개',
+  51:'🌦️ 이슬비', 53:'🌦️ 이슬비', 55:'🌧️ 이슬비(강)',
+  61:'🌧️ 비', 63:'🌧️ 비(보통)', 65:'🌧️ 비(강)',
+  71:'❄️ 눈', 73:'❄️ 눈(보통)', 75:'❄️ 눈(강)',
+  77:'🌨️ 싸락눈',
+  80:'🌦️ 소나기', 81:'🌧️ 소나기(보통)', 82:'⛈️ 소나기(강)',
+  85:'🌨️ 눈소나기', 86:'🌨️ 눈소나기(강)',
+  95:'⛈️ 뇌우', 96:'⛈️ 뇌우+우박', 99:'⛈️ 뇌우+우박(강)'
+};
+
+function getWeatherLabel(code) {
+  return WMO_CODE[code] || '🌡️ 알수없음';
+}
+
+function loadWeather(gameDate) {
+  var now = new Date();
+  var today = now.toISOString().split('T')[0];
+
+  // 오늘 현재 날씨 + 운동일 날씨 (7일 이내면 예보)
+  var dates = [today];
+  if (gameDate && gameDate !== today) dates.push(gameDate);
+
+  var startDate = dates[0];
+  var endDate = dates[dates.length-1];
+
+  // 날짜 범위가 7일 초과하면 예보 불가
+  var dayDiff = gameDate ? Math.round((new Date(gameDate)-new Date(today))/(1000*60*60*24)) : 0;
+
+  var url = 'https://api.open-meteo.com/v1/forecast?' +
+    'latitude='+STADIUM_LAT+'&longitude='+STADIUM_LNG +
+    '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max' +
+    '&timezone=Asia%2FSeoul' +
+    '&start_date='+startDate +
+    '&end_date='+(dayDiff<=7 && gameDate ? gameDate : startDate);
+
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (!data.daily) return;
+      var days = data.daily;
+      var nowEl = el('h-weather-now');
+      var gameEl = el('h-weather-game');
+      var updEl = el('h-weather-updated');
+
+      // 현재 날씨 (오늘)
+      var todayIdx = days.time.indexOf(today);
+      if (todayIdx >= 0 && nowEl) {
+        var code = days.weathercode[todayIdx];
+        var tmax = days.temperature_2m_max[todayIdx];
+        var tmin = days.temperature_2m_min[todayIdx];
+        var rain = days.precipitation_probability_max[todayIdx];
+        var wind = days.windspeed_10m_max[todayIdx];
+        nowEl.innerHTML =
+          '<div style="display:flex;align-items:center;justify-content:center;gap:16px">' +
+            '<div style="text-align:center">' +
+              '<div style="font-size:28px;margin-bottom:4px">'+getWeatherLabel(code).split(' ')[0]+'</div>' +
+              '<div style="font-size:12px;color:var(--txt)">'+getWeatherLabel(code).split(' ').slice(1).join(' ')+'</div>' +
+            '</div>' +
+            '<div style="text-align:left;font-size:13px;line-height:2">' +
+              '<div>🌡️ '+tmin+'°~ '+tmax+'°C</div>' +
+              '<div>🌧️ 강수 '+rain+'%</div>' +
+              '<div>💨 바람 '+wind+'km/h</div>' +
+            '</div>' +
+          '</div>';
+      }
+
+      // 운동일 날씨 (다른 날인 경우)
+      if (gameDate && gameDate !== today && gameEl) {
+        var gameIdx = days.time.indexOf(gameDate);
+        if (gameIdx >= 0) {
+          var gcode = days.weathercode[gameIdx];
+          var gtmax = days.temperature_2m_max[gameIdx];
+          var gtmin = days.temperature_2m_min[gameIdx];
+          var grain = days.precipitation_probability_max[gameIdx];
+          var gwind = days.windspeed_10m_max[gameIdx];
+          var gd = new Date(gameDate);
+          var gdStr = (gd.getMonth()+1)+'월 '+gd.getDate()+'일';
+          gameEl.style.display = 'block';
+          gameEl.innerHTML =
+            '<div style="border-top:1px solid var(--brd);margin-top:10px;padding-top:10px">' +
+            '<div style="font-size:11px;color:var(--yel);font-weight:700;margin-bottom:8px">⚽ '+gdStr+' 운동 당일 예보</div>' +
+            '<div style="display:flex;align-items:center;justify-content:center;gap:16px">' +
+              '<div style="text-align:center">' +
+                '<div style="font-size:24px;margin-bottom:4px">'+getWeatherLabel(gcode).split(' ')[0]+'</div>' +
+                '<div style="font-size:12px;color:var(--txt)">'+getWeatherLabel(gcode).split(' ').slice(1).join(' ')+'</div>' +
+              '</div>' +
+              '<div style="text-align:left;font-size:13px;line-height:2">' +
+                '<div>🌡️ '+gtmin+'°~ '+gtmax+'°C</div>' +
+                '<div>🌧️ 강수 '+grain+'%</div>' +
+                '<div>💨 바람 '+gwind+'km/h</div>' +
+              '</div>' +
+            '</div>' +
+            '</div>';
+        } else if (dayDiff > 7) {
+          gameEl.style.display = 'block';
+          gameEl.innerHTML =
+            '<div style="border-top:1px solid var(--brd);margin-top:10px;padding-top:10px;text-align:center;font-size:12px;color:var(--mut)">⚽ 운동 당일 예보는 7일 이내부터 제공됩니다</div>';
+        }
+      } else if (gameEl) {
+        gameEl.style.display = 'none';
+      }
+
+      if (updEl) {
+        updEl.textContent = now.getHours()+':'+String(now.getMinutes()).padStart(2,'0')+' 기준';
+      }
+    })
+    .catch(function(e){
+      var nowEl = el('h-weather-now');
+      if (nowEl) nowEl.innerHTML = '<div style="color:var(--mut);font-size:12px;text-align:center">날씨 정보를 불러올 수 없어요</div>';
+    });
+}
+
+
 var SUPABASE_URL = 'https://httbazqikdcvytytgrba.supabase.co';
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGJhenFpa2Rjdnl0eXRncmJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NzEwNjUsImV4cCI6MjA5MTA0NzA2NX0.EJnFH8dWygTwOl8H4Izfh0GsLMRIhZKiW0tIBAAd3Sw';
 var DB_KEY = 'fmv3';
@@ -487,6 +616,7 @@ function init() {
   // 백그라운드 Supabase 동기화
   syncSupabase();
   setInterval(syncSupabase, 30000);
+  setInterval(loadWeather, 1800000); // 30분마다 날씨 갱신
 }
 
 function syncSupabase() {
@@ -636,6 +766,19 @@ function renderHome() {
         '<div style="font-size:12px;color:var(--mut);margin-top:6px">다음 주 일정</div>' +
       '</div>';
   }
+
+  // 날씨 로드 (현재 + 운동일)
+  var weatherGame = null;
+  if (extras.length) {
+    var e0 = extras[0];
+    var e0End = new Date(e0.date+'T'+(e0.etime||'12:00'));
+    if (e0End > now) weatherGame = e0.date;
+  }
+  if (!weatherGame && sundayActive) {
+    var sunD = nextSunday();
+    weatherGame = sunD.getFullYear()+'-'+String(sunD.getMonth()+1).padStart(2,'0')+'-'+String(sunD.getDate()).padStart(2,'0');
+  }
+  loadWeather(weatherGame);
 }
 
 function renderMomBanner() {
@@ -701,7 +844,9 @@ function renderMomBanner() {
     '</div>';
 }
 
-function tickDeadline() { renderHome(); }
+function tickDeadline() {
+  renderHome();
+}
 
 // ── VOTE ──
 function renderVote() {
