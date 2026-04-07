@@ -1033,6 +1033,15 @@ function renderMomSection() {
   }).join('') : '<div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">최근 4주 기록 없음</div>');
 }
 
+
+function pickHomeMom(name, elem) {
+  selMomName = name;
+  // 홈탭 mpl 버튼들 sel 초기화
+  var items = elem.parentNode.querySelectorAll('.mpl');
+  for (var i=0;i<items.length;i++) items[i].classList.remove('sel');
+  elem.classList.add('sel');
+}
+
 function pickMom(name, elem) {
   selMomName = name;
   var items = document.querySelectorAll('.mpl');
@@ -1050,7 +1059,7 @@ function submitMomVote() {
   S.momVoters[me] = true;
   var votes = Object.entries(last.momVotes).sort(function(a,b){ return b[1]-a[1]; });
   if (votes.length) last.mom = votes[0][0];
-  saveState(); renderMomSection(); renderHome();
+  saveState(); renderHome(); renderMomSection();
   showToast('⭐ MOM 투표 완료!');
 }
 
