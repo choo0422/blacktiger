@@ -184,6 +184,16 @@ textarea{resize:vertical;min-height:80px}
 <!-- VOTE -->
 <div class="pg" id="pg-vote">
   <div id="v-all-votes"></div>
+  <!-- 지난 투표 -->
+  <div id="v-past-section" style="display:none;margin-top:4px">
+    <button onclick="togglePastVotes()" id="v-past-btn"
+      style="width:100%;padding:11px;border-radius:12px;border:1px solid var(--brd);
+        background:var(--c2);color:var(--mut);font-size:13px;font-weight:700;
+        cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:0">
+      <span>🗂️ 지난 투표 보기</span><span id="v-past-arrow">▼</span>
+    </button>
+    <div id="v-past-list" style="display:none;margin-top:8px"></div>
+  </div>
 </div>
 
 <!-- STATS -->
@@ -638,21 +648,101 @@ function renderVote() {
   var vav = el('v-all-votes');
   if (!vav) return;
   var now = new Date();
+
+  // 정기운동 종료 시간 (일요일 12:00)
   var sun = nextSunday(); sun.setHours(10,0,0,0);
-  var extras = (S.extraVotes||[]).filter(function(e){ return e.active && e.date; })
-    .sort(function(a,b){ return new Date(a.date+'T'+(a.stime||'10:00')) - new Date(b.date+'T'+(b.stime||'10:00')); });
-  var items = [];
-  extras.forEach(function(e){
-    items.push({ type:'extra', ev:e, date:new Date(e.date+'T'+(e.stime||'10:00')) });
+  var sunEnd = nextSunday(); sunEnd.setHours(12,0,0,0);
+  var sunEnded = now > sunEnd;
+
+  // 추가운동: 현재(종료 전) vs 지난(종료 후)
+  var extras = (S.extraVotes||[]).filter(function(e){ return e.active && e.date; });
+  var currentExtras = extras.filter(function(e){
+    var endTime = new Date(e.date+'T'+(e.etime||'12:00'));
+    return now <= endTime;
   });
-  items.push({ type:'sunday', date:sun });
-  items.sort(function(a,b){ return a.date - b.date; });
+  var pastExtras = (S.extraVotes||[]).filter(function(e){
+    if (!e.date) return false;
+    var endTime = new Date(e.date+'T'+(e.etime||'12:00'));
+    return now > endTime;
+  }).sort(function(a,b){
+    return new Date(b.date+'T'+(b.stime||'10:00')) - new Date(a.date+'T'+(a.stime||'10:00'));
+  });
+
+  // 현재 투표 목록
+  var currentItems = [];
+  currentExtras.forEach(function(e){
+    currentItems.push({ type:'extra', ev:e, date:new Date(e.date+'T'+(e.stime||'10:00')) });
+  });
+  if (!sunEnded) currentItems.push({ type:'sunday', date:sun });
+  currentItems.sort(function(a,b){ return a.date - b.date; });
+
   var out = '';
-  items.forEach(function(item){
-    if (item.type==='sunday') out += renderSundayVoteCard();
-    else out += renderExtraVoteCard(item.ev);
-  });
+  if (currentItems.length) {
+    currentItems.forEach(function(item){
+      if (item.type==='sunday') out += renderSundayVoteCard();
+      else out += renderExtraVoteCard(item.ev);
+    });
+  } else {
+    out = '<div style="color:var(--mut);font-size:13px;text-align:center;padding:30px 0">현재 진행 중인 투표가 없습니다</div>';
+  }
   vav.innerHTML = out;
+
+  // 지난 투표 섹션
+  var pastSection = el('v-past-section');
+  var hasPast = sunEnded || pastExtras.length > 0;
+  if (pastSection) pastSection.style.display = hasPast ? 'block' : 'none';
+
+  // 지난 투표 내용 (열려있을 때만 렌더)
+  var pastList = el('v-past-list');
+  if (pastList && pastList.style.display !== 'none') {
+    renderPastVotes(sunEnded, pastExtras);
+  }
+}
+
+var pastVotesOpen = false;
+
+function togglePastVotes() {
+  pastVotesOpen = !pastVotesOpen;
+  var list  = el('v-past-list');
+  var arrow = el('v-past-arrow');
+  var btn   = el('v-past-btn');
+  if (!list) return;
+  if (pastVotesOpen) {
+    list.style.display = 'block';
+    if (arrow) arrow.textContent = '▲';
+    if (btn) btn.style.color = 'var(--txt)';
+    var now = new Date();
+    var sunEnd = nextSunday(); sunEnd.setHours(12,0,0,0);
+    var sunEnded = now > sunEnd;
+    var pastExtras = (S.extraVotes||[]).filter(function(e){
+      if (!e.date) return false;
+      return now > new Date(e.date+'T'+(e.etime||'12:00'));
+    }).sort(function(a,b){
+      return new Date(b.date+'T'+(b.stime||'10:00')) - new Date(a.date+'T'+(a.stime||'10:00'));
+    });
+    renderPastVotes(sunEnded, pastExtras);
+  } else {
+    list.style.display = 'none';
+    if (arrow) arrow.textContent = '▼';
+    if (btn) btn.style.color = 'var(--mut)';
+  }
+}
+
+function renderPastVotes(sunEnded, pastExtras) {
+  var pastList = el('v-past-list');
+  if (!pastList) return;
+  var out = '';
+
+  // 지난 정기운동 (종료된 경우)
+  if (sunEnded) {
+    out += renderSundayVoteCard(true);
+  }
+  // 지난 추가운동들
+  pastExtras.forEach(function(e){
+    out += renderExtraVoteCard(e, true);
+  });
+
+  pastList.innerHTML = out || '<div style="color:var(--mut);font-size:13px;text-align:center;padding:16px 0">지난 투표 없음</div>';
 }
 
 function renderVoteGroups(votes, members) {
@@ -737,7 +827,8 @@ function makeCommentRows(comments, keyAttr, delFn) {
   }).join('');
 }
 
-function renderSundayVoteCard() {
+function renderSundayVoteCard(isPast) {
+  isPast = isPast || false;
   var fri = nextFriday(); fri.setHours(19,0,0,0);
   var past = new Date() > fri;
   var mv = me ? (S.votes||{})[me] : null;
@@ -771,7 +862,8 @@ function renderSundayVoteCard() {
   '</div>';
 }
 
-function renderExtraVoteCard(e) {
+function renderExtraVoteCard(e, isPast) {
+  isPast = isPast || false;
   var dl = new Date(e.deadlineDate+'T'+e.deadlineTime);
   var past = new Date() > dl;
   var myV = e.votes && e.votes[me];
