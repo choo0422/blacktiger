@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>⚽ 흑호 매니저</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --g:#00C853; --dg:#007B2E;
+  --blk:#080808; --c1:#111; --c2:#1A1A1A;
+  --brd:#2C2C2C; --txt:#EFEFEF; --mut:#666;
+  --yel:#FFD600; --red:#FF1744; --blu:#2979FF;
+  --bg:#080808;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:'Noto Sans KR',sans-serif}
+body{display:flex;flex-direction:column;max-width:480px;margin:0 auto}
+
+/* HEADER */
+.hdr{background:linear-gradient(160deg,#0D2B10,#080808);padding:13px 16px 10px;border-bottom:1px solid #1C3A1F;flex-shrink:0}
+.hdr-row{display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'Noto Sans KR';font-weight:700;font-size:20px;color:var(--g);letter-spacing:-.3px}
+.logo span{color:#fff}
+.npill{display:flex;align-items:center;gap:6px;background:var(--c2);border:1px solid var(--brd);border-radius:20px;padding:5px 12px;font-size:13px;cursor:pointer;transition:.2s}
+.npill:hover{border-color:var(--g)}
+.ndot{width:7px;height:7px;border-radius:50%;background:var(--g)}
+
+/* NAV */
+.nav{display:flex;background:var(--c1);border-bottom:1px solid var(--brd);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nb{flex:none;padding:11px 14px;background:none;border:none;color:var(--mut);font-size:12.5px;cursor:pointer;font-family:'Noto Sans KR';border-bottom:2px solid transparent;transition:.15s;white-space:nowrap}
+.nb.on{color:var(--g);border-bottom-color:var(--g)}
+
+/* PAGES */
+.pages{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 14px 30px}
+.pg{display:none}
+.pg.on{display:block}
+
+/* CARD */
+.card{background:var(--c2);border:1px solid var(--brd);border-radius:14px;padding:14px 14px;margin-bottom:12px}
+.ct{font-family:'Noto Sans KR';font-weight:700;font-size:14px;margin-bottom:10px;color:var(--txt)}
+
+/* VOTE CARD */
+.vcard{background:var(--c2);border:1px solid var(--brd);border-radius:14px;padding:14px;margin-bottom:12px}
+.vbar{display:flex;gap:8px;margin-bottom:12px}
+.vbtn{flex:1;padding:12px 8px;border-radius:10px;border:2px solid var(--brd);background:transparent;color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR';transition:.15s}
+.vbtn.go.sel{background:rgba(0,200,83,.15);border-color:var(--g);color:var(--g)}
+.vbtn.maybe.sel{background:rgba(255,214,0,.12);border-color:var(--yel);color:var(--yel)}
+.vbtn.no.sel{background:rgba(255,23,68,.12);border-color:var(--red);color:var(--red)}
+.vbtn:hover{border-color:var(--mut)}
+
+/* BANNER */
+.mbanner{background:linear-gradient(135deg,#0D2B10,#080808);border:1px solid rgba(0,200,83,.3);border-radius:14px;padding:16px;margin-bottom:12px}
+.md{font-size:11px;color:var(--mut);margin-bottom:4px}
+.mt{font-family:'Noto Sans KR';font-weight:700;font-size:20px;margin-bottom:4px}
+.ms{font-size:12px;color:var(--mut)}
+
+/* DEADLINE CHIP */
+.dchip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;border:1px solid rgba(255,214,0,.3);background:rgba(255,214,0,.07);color:var(--yel)}
+.dchip.past{border-color:rgba(255,23,68,.3);background:rgba(255,23,68,.07);color:var(--red)}
+
+/* VOTE GROUPS */
+.vgroup{padding:7px 0;border-bottom:1px solid var(--brd)}
+.vgroup:last-child{border-bottom:none}
+.vgroup-label{font-size:11px;font-weight:700;margin-bottom:4px}
+.vgroup-names{font-size:13px;color:var(--txt);line-height:1.7}
+
+/* PROGRESS */
+.pw{height:6px;background:var(--brd);border-radius:3px;overflow:hidden}
+.pb{height:100%;background:var(--g);border-radius:3px;transition:.3s}
+
+/* DUES */
+.dcard{background:linear-gradient(135deg,#0D2B10,#080808);border:1px solid rgba(0,200,83,.3);border-radius:14px;padding:20px;margin-bottom:12px;text-align:center}
+.dam{font-family:'Noto Sans KR';font-weight:700;font-size:32px;color:var(--g);margin:8px 0}
+.binfo{background:var(--c1);border-radius:10px;padding:12px 14px;font-size:14px;line-height:2}
+.bnum{font-family:'Noto Sans KR';font-weight:600;font-size:16px;color:var(--txt);letter-spacing:1px}
+.cbtn{background:var(--g);color:#000;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px}
+
+/* ADMIN */
+.asec{background:var(--c2);border:1px solid var(--brd);border-radius:14px;padding:14px;margin-bottom:12px}
+.at{font-family:'Noto Sans KR';font-weight:700;font-size:14px;margin-bottom:10px;color:var(--g)}
+.sr{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--brd)}
+.sr:last-child{border-bottom:none}
+.srname{font-size:14px;font-weight:500}
+
+/* INPUT */
+input[type=text],input[type=date],input[type=time],input[type=number],input[type=password],select,textarea{
+  width:100%;background:var(--c1);border:1px solid var(--brd);border-radius:8px;
+  padding:10px 12px;color:var(--txt);font-size:14px;font-family:'Noto Sans KR';
+  margin-bottom:8px;outline:none;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--g)}
+textarea{resize:vertical;min-height:80px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* BUTTON */
+.btn{width:100%;padding:13px;border-radius:10px;border:none;font-size:15px;font-weight:700;
+  cursor:pointer;font-family:'Noto Sans KR';margin-top:4px;transition:.15s}
+.btng{background:var(--g);color:#000}
+.btno{background:transparent;border:1px solid var(--brd);color:var(--txt)}
+.btnb{background:var(--blu);color:#fff}
+.btnr{background:var(--red);color:#fff}
+.btnsm{font-size:13px;padding:9px}
+
+/* CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.chip{padding:6px 14px;border-radius:20px;font-size:13px;border:1px solid var(--brd);cursor:pointer;transition:.15s}
+.chip.on{background:rgba(0,200,83,.15);border-color:var(--g);color:var(--g)}
+
+/* MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:.2s}
+.mo.op{opacity:1;pointer-events:all}
+.mbox{background:var(--c2);border:1px solid var(--brd);border-radius:16px;padding:20px;width:90%;max-width:360px}
+.mbox h3{font-family:'Noto Sans KR';font-weight:700;font-size:16px;margin-bottom:14px}
+
+/* TOAST */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:rgba(30,30,30,.95);color:#fff;padding:10px 20px;border-radius:20px;
+  font-size:13px;opacity:0;transition:.3s;z-index:9999;white-space:nowrap;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* MOM */
+.mpl{display:inline-block;background:var(--c1);border:1px solid var(--brd);border-radius:20px;
+  padding:6px 14px;margin:3px;font-size:13px;cursor:pointer;transition:.15s}
+.mpl:hover{border-color:var(--yel)}
+.mpl.sel{background:rgba(255,214,0,.15);border-color:var(--yel);color:var(--yel);font-weight:700}
+.mgrid{display:flex;flex-wrap:wrap}
+
+/* TEAM PANEL */
+.tpanel{display:none;border-radius:10px;overflow:hidden;margin-bottom:10px}
+.trow{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05)}
+.trow:last-child{border-bottom:none}
+
+/* RULE */
+.rule-item{background:var(--c1);border-radius:10px;padding:12px;margin-bottom:8px}
+.rule-no{font-size:11px;color:var(--g);font-weight:700;min-width:32px}
+
+/* NOTICE */
+.notice{background:var(--c2);border:1px solid var(--brd);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--mut);margin-bottom:8px;text-align:center}
+
+/* RANK */
+.rank-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--brd)}
+.rank-item:last-child{border-bottom:none}
+.rank-num{font-size:16px;font-weight:700;min-width:28px;color:var(--mut)}
+.rank-name{flex:1;font-size:14px}
+.rank-val{font-size:13px;color:var(--mut)}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-row">
+    <div class="logo">⚽ <span>흑호</span>매니저</div>
+    <div class="npill" onclick="openNameModal(false)">
+      <div class="ndot"></div>
+      <span id="nameLbl">이름 설정</span>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="nb on" onclick="go('home')">🏠 홈</button>
+  <button class="nb" onclick="go('vote')">📋 투표</button>
+  <button class="nb" onclick="go('stats')">📊 기록</button>
+  <button class="nb" onclick="go('dues')">💰 회비</button>
+  <button class="nb" onclick="go('rules')">📜 회칙</button>
+  <button class="nb" onclick="go('admin')">⚙️ 관리</button>
+</div>
+
+<div class="pages">
+
+<!-- HOME -->
+<div class="pg on" id="pg-home">
+  <div id="h-mom-banner"></div>
+  <div id="h-next-banner"></div>
+  <div class="card">
+    <div class="ct">참석 현황</div>
+    <div id="h-vote-rows"><div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">아직 응답이 없습니다</div></div>
+    <div style="margin-top:10px;font-size:12px;color:var(--mut)" id="h-deadline"></div>
+    <button class="btn btng" onclick="go('vote')" style="margin-top:10px;font-size:18px;padding:14px">참석 투표하기 →</button>
+  </div>
+</div>
+
+<!-- VOTE -->
+<div class="pg" id="pg-vote">
+  <div id="v-all-votes"></div>
+</div>
+
+<!-- STATS -->
+<div class="pg" id="pg-stats">
+  <div class="card">
+    <div class="ct">출석 랭킹 👟</div>
+    <div id="s-att"><div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">기록 없음</div></div>
+  </div>
+  <div class="card">
+    <div class="ct">출석률 📈</div>
+    <div id="s-rate"><div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">기록 없음</div></div>
+  </div>
+  <div style="height:4px"></div>
+  <div style="font-family:'Noto Sans KR';font-weight:700;font-size:15px;color:var(--yel);margin-bottom:10px;padding:0 2px">🏆 MOM</div>
+  <div class="card" id="sm-vote" style="display:none;border-color:rgba(255,214,0,.35)">
+    <div style="font-family:'Noto Sans KR';font-weight:700;font-size:13px;color:var(--yel);margin-bottom:4px">MOM 투표 진행 중 ⚡</div>
+    <div style="font-size:11px;color:var(--mut);margin-bottom:10px" id="sm-timer">마감까지 계산 중...</div>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:12px">참석자만 · 익명 · 1인 1표</div>
+    <div class="mgrid" id="sm-grid"></div>
+    <div style="height:12px"></div>
+    <button class="btn btng btnsm" onclick="submitMomVote()">⭐ 투표하기</button>
+  </div>
+  <div id="sm-done" style="display:none" class="notice">✅ MOM 투표에 참여했습니다!</div>
+  <div id="sm-noatt" style="display:none" class="notice">오늘 운동 참석자만 MOM 투표에 참여할 수 있습니다</div>
+  <div class="card">
+    <div class="ct">명예의 전당 🏅</div>
+    <div id="sm-hall"><div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">아직 기록이 없습니다</div></div>
+  </div>
+  <div class="card">
+    <div class="ct">최근 4주 MOM</div>
+    <div id="sm-recent"><div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">최근 4주 기록 없음</div></div>
+  </div>
+</div>
+
+<!-- DUES -->
+<div class="pg" id="pg-dues">
+  <div class="dcard">
+    <div style="font-size:12px;color:var(--mut)">월 회비</div>
+    <div class="dam">30,000원</div>
+  </div>
+  <div class="card">
+    <div class="ct">입금 계좌</div>
+    <div class="binfo">
+      <div>은행: <strong style="color:var(--yel)">카카오뱅크</strong></div>
+      <div>예금주: <strong style="color:var(--txt)">전도형</strong></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+        <span class="bnum">3333-06-0015299</span>
+        <button class="cbtn" onclick="copyAcc()">📋 복사</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RULES -->
+<div class="pg" id="pg-rules">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="font-family:'Noto Sans KR';font-weight:700;font-size:16px;color:var(--g)">📜 팀 회칙</div>
+    <div style="font-size:11px;color:var(--mut)" id="rules-updated"></div>
+  </div>
+  <div id="rules-view">
+    <div style="color:var(--mut);font-size:13px;text-align:center;padding:40px 0">
+      아직 등록된 회칙이 없습니다<br>
+      <span style="font-size:11px">관리자가 회칙을 작성할 수 있습니다</span>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="pg" id="pg-admin">
+  <div id="admin-lock">
+    <div class="card" style="text-align:center;padding:30px 20px">
+      <div style="font-size:48px;margin-bottom:12px">🔐</div>
+      <div style="font-size:14px;color:var(--mut);margin-bottom:16px">관리자 전용 영역입니다</div>
+      <input type="password" id="adm-pw" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')admLogin()">
+      <button class="btn btnb" onclick="admLogin()">입장하기</button>
+    </div>
+  </div>
+  <div id="admin-panel" style="display:none">
+
+    <!-- 참석자 등록 + MOM 오픈 -->
+    <div class="asec">
+      <div class="at">🏆 오늘 참석자 등록 & MOM 오픈</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:8px">저장하면 참석자들에게 12시간 MOM 투표 오픈</div>
+      <input type="date" id="a-date">
+      <div style="font-size:12px;color:var(--mut);margin-bottom:6px">참석자 선택</div>
+      <div class="chips" id="a-att"></div>
+      <button class="btn btng" onclick="saveAttendees()">참석자 저장 + MOM 투표 열기 🏆</button>
+    </div>
+
+    <!-- 추가운동 투표 생성 -->
+    <div class="asec">
+      <div class="at">🗓️ 추가 운동 투표 생성</div>
+      <input type="text" id="ev-title" placeholder="투표 제목 (예: 토요일 운동)">
+      <div style="font-size:12px;color:var(--mut);margin-bottom:4px">운동 날짜</div>
+      <input type="date" id="ev-date">
+      <div class="two">
+        <div>
+          <div style="font-size:12px;color:var(--mut);margin-bottom:4px">시작 시간</div>
+          <input type="time" id="ev-stime" value="10:00" style="margin-bottom:0">
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--mut);margin-bottom:4px">종료 시간</div>
+          <input type="time" id="ev-etime" value="12:00" style="margin-bottom:0">
+        </div>
+      </div>
+      <div style="height:8px"></div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:4px">투표 마감</div>
+      <div class="two">
+        <input type="date" id="ev-dl-date" style="margin-bottom:0">
+        <input type="time" id="ev-dl-time" value="19:00" style="margin-bottom:0">
+      </div>
+      <div style="height:8px"></div>
+      <button class="btn btng btnsm" onclick="createExtraVote()" style="width:100%">투표 생성</button>
+      <div id="ev-list" style="margin-top:10px"></div>
+    </div>
+
+    <!-- 팀 배정 -->
+    <div class="asec">
+      <div class="at">🔴 팀 배정 관리</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:10px">팀원 이름 옆 버튼으로 팀 배정</div>
+      <div id="a-team-assign"></div>
+    </div>
+
+    <!-- 회비 납부 관리 -->
+    <div class="asec">
+      <div class="at">💰 회비 납부 관리 <span style="font-size:11px;font-weight:400;color:var(--mut)">(클릭으로 전환)</span></div>
+      <div id="a-dues"></div>
+    </div>
+
+    <!-- 팀원 관리 -->
+    <div class="asec">
+      <div class="at">👥 팀원 관리</div>
+      <div id="a-members" style="margin-bottom:10px"></div>
+      <div class="two">
+        <input type="text" id="a-new-member" placeholder="이름 입력" style="margin-bottom:0">
+        <button class="btn btng btnsm" onclick="addMember()" style="flex:none;width:auto;padding:0 16px;margin-top:0">추가</button>
+      </div>
+    </div>
+
+    <!-- 이름 등록 현황 -->
+    <div class="asec">
+      <div class="at">🔒 이름 등록 현황</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:8px">수정: 이름 변경 / 초기화: 재등록 가능</div>
+      <div id="a-devices"></div>
+    </div>
+
+    <!-- 회칙 관리 -->
+    <div class="asec">
+      <div class="at">📜 회칙 관리</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:8px">전체 텍스트를 붙여넣으면 자동으로 조항별로 정리돼요</div>
+      <textarea id="a-rules-bulk" rows="7" placeholder="1. 참석 투표&#10;- 금요일까지 투표한다&#10;2. 회비&#10;- 매달 3만원"></textarea>
+      <button class="btn btng btnsm" onclick="parseBulkRules()" style="margin-bottom:10px">📋 자동 파싱해서 저장</button>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:6px">현재 저장된 회칙</div>
+      <div id="a-rules-list" style="margin-bottom:8px"></div>
+      <div class="two">
+        <button class="btn btno btnsm" onclick="addRuleItem()">+ 조항 추가</button>
+        <button class="btn btnb btnsm" onclick="saveRules()">저장</button>
+      </div>
+    </div>
+
+    <!-- 투표 초기화 -->
+    <div class="asec">
+      <div class="at">🔄 투표 초기화</div>
+      <button class="btn btno" onclick="resetVotes()" style="width:100%">다음 운동 투표 초기화</button>
+    </div>
+
+    <button class="btn btno" onclick="admLogout()" style="margin-top:4px;margin-bottom:20px">로그아웃</button>
+  </div>
+</div>
+
+</div><!-- /pages -->
+
+<!-- NAME MODAL -->
+<div class="mo" id="mo-name">
+  <div class="mbox">
+    <h3>👤 내 이름 설정</h3>
+    <div id="mo-first" style="display:none;background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.3);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--g);margin-bottom:12px;line-height:1.6">
+      🎉 처음 오셨군요!<br>이름을 한 번만 설정하면 다음부터 바로 투표할 수 있어요
+    </div>
+    <div style="font-size:13px;color:var(--mut);margin-bottom:12px">팀원 목록에서 내 이름을 선택하세요</div>
+    <select id="mo-sel" onchange="if(this.value)document.getElementById('mo-inp').value=this.value">
+      <option value="">-- 팀원 선택 --</option>
+    </select>
+    <div style="font-size:12px;color:var(--mut);margin:4px 0 8px">또는 직접 입력</div>
+    <input type="text" id="mo-inp" placeholder="이름 입력">
+    <button class="btn btng" onclick="saveName()" style="margin-bottom:8px">확인</button>
+    <button class="btn btno btnsm" id="mo-cancel" onclick="closeModal('mo-name')" style="display:none">취소</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+var SUPABASE_URL = 'https://httbazqikdcvytytgrba.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGJhenFpa2Rjdnl0eXRncmJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NzEwNjUsImV4cCI6MjA5MTA0NzA2NX0.EJnFH8dWygTwOl8H4Izfh0GsLMRIhZKiW0tIBAAd3Sw';
+var DB_KEY = 'fmv3';
+
+var DEF = {
+  members: [],
+  votes: {},
+  comments: {},
+  matches: [],
+  momActive: false,
+  momDeadline: null,
+  momVoters: {},
+  duesPaid: {},
+  extraVotes: [],
+  rules: [],
+  rulesUpdated: '',
+  deviceNames: {},
+  memberTeams: {},
+  settings: { adminPw: '0009' }
+};
+
+var S = {};
+var me = '';
+var admIn = false;
+var selAtt = [];
+var selMomName = '';
+var editRules = [];
+var isFirst = false;
+var toastTimer = null;
+var TEAMS = ['흑호', '현무', '주작'];
+var TEAM_COLOR = {'흑호':'var(--g)','현무':'var(--blu)','주작':'var(--red)'};
+var TEAM_BG = {'흑호':'rgba(0,200,83,.1)','현무':'rgba(41,121,255,.1)','주작':'rgba(255,23,68,.08)'};
+var TEAM_BRD = {'흑호':'rgba(0,200,83,.4)','현무':'rgba(41,121,255,.4)','주작':'rgba(255,23,68,.35)'};
+
+function el(id) { return document.getElementById(id); }
+function cloneObj(o) { return JSON.parse(JSON.stringify(o)); }
+function setHTML(id, v) { var e = el(id); if (e) e.innerHTML = v; }
+
+function sbHeaders() {
+  return {
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=minimal'
+  };
+}
+
+function ensureKeys() {
+  var keys = ['members','votes','comments','matches','momVoters','duesPaid','extraVotes','rules','deviceNames','memberTeams'];
+  for (var i = 0; i < keys.length; i++) {
+    if (!S[keys[i]]) S[keys[i]] = cloneObj(DEF[keys[i]]);
+  }
+  if (S.momActive === undefined) S.momActive = false;
+  if (!S.settings) S.settings = cloneObj(DEF.settings);
+  if (!S.rulesUpdated) S.rulesUpdated = '';
+}
+
+function saveState() {
+  try { localStorage.setItem(DB_KEY, JSON.stringify(S)); } catch(e) {}
+  var val = JSON.stringify(S);
+  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY + '&apikey=' + SUPABASE_KEY, {
+    method: 'GET', headers: sbHeaders()
+  }).then(function(r){ return r.json(); }).then(function(rows){
+    var method = (rows && rows.length > 0) ? 'PATCH' : 'POST';
+    var url = SUPABASE_URL + '/rest/v1/gamedata' + (method==='PATCH'?'?key=eq.'+DB_KEY:'') + '&apikey=' + SUPABASE_KEY;
+    fetch(url, { method: method, headers: sbHeaders(), body: JSON.stringify(method==='PATCH'?{value:val}:{key:DB_KEY,value:val}) });
+  }).catch(function(){});
+}
+
+function init() {
+  var deviceId = localStorage.getItem('fm_deviceId');
+  if (!deviceId) {
+    deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    localStorage.setItem('fm_deviceId', deviceId);
+  }
+  window._deviceId = deviceId;
+  me = localStorage.getItem('fm_me') || '';
+
+  // 로컬 데이터로 즉시 시작
+  try {
+    var local = localStorage.getItem(DB_KEY);
+    S = local ? JSON.parse(local) : cloneObj(DEF);
+  } catch(e) { S = cloneObj(DEF); }
+  ensureKeys();
+
+  if (window._deviceId && S.deviceNames && S.deviceNames[window._deviceId]) {
+    me = S.deviceNames[window._deviceId];
+    localStorage.setItem('fm_me', me);
+  }
+  updateNameLbl();
+  renderAll();
+  tickDeadline();
+  setInterval(tickDeadline, 30000);
+  setInterval(checkMomExpiry, 60000);
+  if (!me) setTimeout(function(){ openNameModal(true); }, 400);
+
+  // 백그라운드 Supabase 동기화
+  syncSupabase();
+  setInterval(syncSupabase, 30000);
+}
+
+function syncSupabase() {
+  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY + '&select=value&apikey=' + SUPABASE_KEY, {
+    method: 'GET', headers: sbHeaders()
+  }).then(function(r){ return r.json(); }).then(function(rows){
+    if (rows && rows.length > 0 && rows[0].value) {
+      try {
+        var newS = JSON.parse(rows[0].value);
+        // 내 정보 보호
+        if (me && S.votes && S.votes[me]) newS.votes[me] = S.votes[me];
+        if (window._deviceId && S.deviceNames && S.deviceNames[window._deviceId]) {
+          if (!newS.deviceNames) newS.deviceNames = {};
+          newS.deviceNames[window._deviceId] = S.deviceNames[window._deviceId];
+        }
+        S = newS;
+        ensureKeys();
+        localStorage.setItem(DB_KEY, rows[0].value);
+        renderAll();
+      } catch(e) {}
+    }
+  }).catch(function(e){ console.warn('Supabase sync failed:', e.message); });
+}
+
+// ── HELPERS ──
+function nextSunday() {
+  var d = new Date(); d.setHours(0,0,0,0);
+  var day = d.getDay();
+  d.setDate(d.getDate() + (day===0 ? 7 : 7-day));
+  return d;
+}
+function nextFriday() {
+  var d = new Date(); d.setHours(0,0,0,0);
+  var day = d.getDay();
+  var diff = day<=5 ? 5-day : 6;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+function ymKey(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function deadlineDiffStr(dl) {
+  var diff = dl - new Date();
+  if (diff <= 0) return '마감됨';
+  var h = Math.floor(diff/3600000);
+  var m = Math.floor((diff%3600000)/60000);
+  if (h >= 24) return Math.floor(h/24)+'일 '+( h%24)+'시간';
+  return h+'시간 '+m+'분';
+}
+function getNextEvent() {
+  var now = new Date();
+  var sun = nextSunday(); sun.setHours(10,0,0,0);
+  var extras = (S.extraVotes||[]).filter(function(e){
+    return e.active && e.date && new Date(e.date+'T'+(e.stime||'10:00')) > now;
+  }).sort(function(a,b){
+    return new Date(a.date+'T'+(a.stime||'10:00')) - new Date(b.date+'T'+(b.stime||'10:00'));
+  });
+  if (extras.length && new Date(extras[0].date+'T'+(extras[0].stime||'10:00')) < sun) {
+    return { isExtra: true, ev: extras[0] };
+  }
+  return { isExtra: false };
+}
+function pastDeadline() {
+  var fri = nextFriday(); fri.setHours(19,0,0,0);
+  return new Date() > fri;
+}
+
+// ── RENDER ALL ──
+function renderAll() {
+  renderHome();
+  renderVote();
+  renderStats();
+  renderRules();
+  if (admIn) renderAdmin();
+}
+
+// ── HOME ──
+function renderHome() {
+  var nextEvent = getNextEvent();
+  var votes = nextEvent.isExtra ? (nextEvent.ev.votes||{}) : (S.votes||{});
+
+  // 참석현황
+  var goNames    = Object.keys(votes).filter(function(n){ return votes[n]==='go'; });
+  var maybeNames = Object.keys(votes).filter(function(n){ return votes[n]==='maybe'; });
+  var noNames    = Object.keys(votes).filter(function(n){ return votes[n]==='no'; });
+
+  function makeRow(label, color, names) {
+    if (!names.length) return '';
+    return '<div style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid var(--brd)">' +
+      '<div style="font-weight:700;font-size:14px;color:'+color+';white-space:nowrap;min-width:64px">'+label+' '+names.length+'명</div>' +
+      '<div style="font-size:13px;color:var(--txt);flex:1;line-height:1.7">'+names.join(' · ')+'</div>' +
+      '</div>';
+  }
+  var rows = makeRow('✅ 참석','var(--g)',goNames) +
+             makeRow('🤔 미정','var(--yel)',maybeNames) +
+             makeRow('❌ 불참','var(--red)',noNames);
+  setHTML('h-vote-rows', rows || '<div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">아직 응답이 없습니다</div>');
+
+  // 마감
+  var hdl = el('h-deadline');
+  if (hdl) {
+    if (nextEvent.isExtra) {
+      var dl2 = new Date(nextEvent.ev.deadlineDate+'T'+nextEvent.ev.deadlineTime);
+      hdl.textContent = '⏰ 마감까지 ' + deadlineDiffStr(dl2);
+    } else {
+      var fri = nextFriday(); fri.setHours(19,0,0,0);
+      hdl.textContent = '⏰ 마감까지 ' + deadlineDiffStr(fri);
+    }
+  }
+
+  // MOM 배너
+  var momBanner = el('h-mom-banner');
+  if (momBanner) {
+    if (S.momActive && S.momDeadline) {
+      var momDl = new Date(S.momDeadline);
+      var momLeft = deadlineDiffStr(momDl);
+      var last = S.matches && S.matches.length ? S.matches[S.matches.length-1] : null;
+      var isAtt = last && last.attendees && last.attendees.indexOf(me) !== -1;
+      var voted = S.momVoters && S.momVoters[me];
+      momBanner.innerHTML =
+        '<div class="card" style="border-color:rgba(255,214,0,.5);background:linear-gradient(135deg,#1A1200,#0A0A0A);margin-bottom:12px;cursor:pointer" onclick="go(\'stats\')">' +
+        '<div style="font-size:10px;color:var(--yel);margin-bottom:6px">🏆 MOM 투표 진행 중 · '+momLeft+'</div>' +
+        '<div style="font-weight:700;font-size:16px;margin-bottom:4px">이번 주 MVP는 누구?</div>' +
+        (voted ? '<div style="font-size:12px;color:var(--g)">✅ 투표 완료!</div>' :
+          isAtt ? '<div style="font-size:12px;color:var(--yel)">⭐ 아직 투표 안 했어요 → 기록 탭에서 투표</div>' :
+          '<div style="font-size:12px;color:var(--mut)">참석자만 투표 가능</div>') +
+        '</div>';
+    } else {
+      momBanner.innerHTML = '';
+    }
+  }
+
+  // 배너
+  var banner = el('h-next-banner');
+  if (!banner) return;
+  if (nextEvent.isExtra) {
+    var e = nextEvent.ev;
+    var dl = new Date(e.deadlineDate+'T'+e.deadlineTime);
+    banner.innerHTML =
+      '<div class="mbanner" style="border-color:rgba(255,214,0,.5);background:linear-gradient(135deg,#1A1200,#060806)">' +
+      '<div class="md" style="color:var(--yel)">📢 추가 운동 투표</div>' +
+      '<div class="mt" style="font-size:22px">'+e.title+'</div>' +
+      '<div style="font-size:13px;color:var(--txt);margin-top:4px">🗓️ '+e.date+' '+e.stime+'~'+e.etime+'</div>' +
+      '<div class="ms">⏰ 마감까지 '+deadlineDiffStr(dl)+'</div>' +
+      '</div>';
+  } else {
+    var sun = nextSunday();
+    var sunStr = (sun.getMonth()+1)+'월 '+sun.getDate()+'일 (일)';
+    banner.innerHTML =
+      '<div class="mbanner">' +
+      '<div class="md">'+sunStr+' 다음 운동</div>' +
+      '<div class="mt">일요일 10:00 – 12:00 ⚽</div>' +
+      '<div class="ms">📍 투표 마감: 금요일 오후 7시</div>' +
+      '</div>';
+  }
+}
+
+function tickDeadline() { renderHome(); }
+
+// ── VOTE ──
+function renderVote() {
+  var vav = el('v-all-votes');
+  if (!vav) return;
+  var now = new Date();
+  var sun = nextSunday(); sun.setHours(10,0,0,0);
+  var extras = (S.extraVotes||[]).filter(function(e){ return e.active && e.date; })
+    .sort(function(a,b){ return new Date(a.date+'T'+(a.stime||'10:00')) - new Date(b.date+'T'+(b.stime||'10:00')); });
+  var items = [];
+  extras.forEach(function(e){
+    items.push({ type:'extra', ev:e, date:new Date(e.date+'T'+(e.stime||'10:00')) });
+  });
+  items.push({ type:'sunday', date:sun });
+  items.sort(function(a,b){ return a.date - b.date; });
+  var out = '';
+  items.forEach(function(item){
+    if (item.type==='sunday') out += renderSundayVoteCard();
+    else out += renderExtraVoteCard(item.ev);
+  });
+  vav.innerHTML = out;
+}
+
+function renderVoteGroups(votes, members) {
+  var mt = S.memberTeams || {};
+  var goes   = Object.keys(votes).filter(function(n){ return votes[n]==='go'; });
+  var maybes = Object.keys(votes).filter(function(n){ return votes[n]==='maybe'; });
+  var nos    = Object.keys(votes).filter(function(n){ return votes[n]==='no'; });
+
+  function grp(label, color, names) {
+    if (!names.length) return '';
+    return '<div class="vgroup"><div class="vgroup-label" style="color:'+color+'">'+label+' '+names.length+'명</div>' +
+      '<div class="vgroup-names">'+names.join(' · ')+'</div></div>';
+  }
+  return grp('✅ 참석','var(--g)',goes) + grp('🤔 미정','var(--yel)',maybes) + grp('❌ 불참','var(--red)',nos);
+}
+
+function makeTeamPanelHTML(votes) {
+  var mt = S.memberTeams || {};
+  var html = '';
+  var hasTeam = false;
+  TEAMS.forEach(function(team){
+    var members = (S.members||[]).filter(function(n){ return mt[n]===team; });
+    if (!members.length) return;
+    hasTeam = true;
+    var goes   = members.filter(function(n){ return votes[n]==='go'; });
+    var maybes = members.filter(function(n){ return votes[n]==='maybe'; });
+    var nos    = members.filter(function(n){ return votes[n]==='no'; });
+    var none   = members.filter(function(n){ return !votes[n]; });
+    function chips(arr, color, bg) {
+      return arr.map(function(n){
+        return '<span style="display:inline-block;padding:3px 10px;border-radius:14px;font-size:12px;margin:2px;background:'+bg+';color:'+color+'">'+n+'</span>';
+      }).join('');
+    }
+    html += '<div style="border-left:3px solid '+TEAM_COLOR[team]+';padding:8px 10px;margin-bottom:8px;background:'+TEAM_BG[team]+';border-radius:0 8px 8px 0">' +
+      '<div style="font-weight:700;font-size:13px;color:'+TEAM_COLOR[team]+';margin-bottom:6px">'+team+'</div>' +
+      (goes.length   ? '<div style="margin-bottom:4px"><span style="font-size:11px;color:var(--g);font-weight:700">✅ '+goes.length+'</span> '+chips(goes,'var(--g)','rgba(0,200,83,.13)')+'</div>' : '') +
+      (maybes.length ? '<div style="margin-bottom:4px"><span style="font-size:11px;color:var(--yel);font-weight:700">🤔 '+maybes.length+'</span> '+chips(maybes,'var(--yel)','rgba(255,214,0,.12)')+'</div>' : '') +
+      (nos.length    ? '<div style="margin-bottom:4px"><span style="font-size:11px;color:var(--red);font-weight:700">❌ '+nos.length+'</span> '+chips(nos,'var(--red)','rgba(255,23,68,.1)')+'</div>' : '') +
+      (none.length   ? '<div><span style="font-size:11px;color:var(--mut);font-weight:700">⬜ '+none.length+'</span> '+chips(none,'var(--mut)','var(--c2)')+'</div>' : '') +
+    '</div>';
+  });
+  if (!hasTeam) return '<div style="color:var(--mut);font-size:12px;text-align:center;padding:10px 0">팀 배정 후 표시됩니다</div>';
+  return html;
+}
+
+function onTeamBtnClick(btn) {
+  var panelId = btn.getAttribute('data-panel');
+  var isOpen = btn.getAttribute('data-open') === '1';
+  var panel = el(panelId);
+  if (!panel) return;
+  if (isOpen) {
+    panel.style.display = 'none';
+    btn.setAttribute('data-open','0');
+    btn.textContent = '🔴 팀별 참석현황 ▼';
+    btn.style.borderColor = 'var(--brd)';
+  } else {
+    panel.style.display = 'block';
+    btn.setAttribute('data-open','1');
+    btn.textContent = '🔴 팀별 참석현황 ▲';
+    btn.style.borderColor = 'var(--g)';
+    var votesJson = btn.getAttribute('data-votes');
+    try { panel.innerHTML = makeTeamPanelHTML(JSON.parse(votesJson)); } catch(e){}
+  }
+}
+
+function makeDeadlineChip(dl) {
+  var past = new Date() > dl;
+  var txt = past ? '마감됨' : ('마감까지 '+deadlineDiffStr(dl));
+  return '<span class="dchip'+(past?' past':'')+'">⏰ '+txt+'</span>';
+}
+
+function makeCommentRows(comments, keyAttr, delFn) {
+  if (!comments || !comments.length) return '';
+  return comments.map(function(c,i){
+    var mine = c.author === me;
+    return '<div style="display:flex;align-items:flex-start;gap:6px;padding:5px 0;border-bottom:1px solid var(--brd)">' +
+      '<span style="font-weight:600;font-size:12px;min-width:40px">'+c.author+'</span>' +
+      '<span style="flex:1;font-size:12px">'+c.text+'</span>' +
+      '<span style="font-size:10px;color:var(--mut);white-space:nowrap">'+c.time+'</span>' +
+      (mine ? '<button '+keyAttr+' data-idx="'+i+'" onclick="'+delFn+'(this)" style="background:none;border:none;color:var(--mut);font-size:11px;cursor:pointer;padding:0 2px">✕</button>' : '') +
+      '</div>';
+  }).join('');
+}
+
+function renderSundayVoteCard() {
+  var fri = nextFriday(); fri.setHours(19,0,0,0);
+  var past = new Date() > fri;
+  var mv = me ? (S.votes||{})[me] : null;
+  var votes = S.votes || {};
+  var sun = nextSunday();
+  var dateStr = (sun.getMonth()+1)+'월 '+sun.getDate()+'일 (일)';
+  var comments = (S.comments && S.comments['SUNDAY']) ? S.comments['SUNDAY'] : [];
+  var votesJson = JSON.stringify(votes).replace(/"/g,'&quot;');
+
+  return '<div class="vcard">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+      '<div><div style="font-weight:700;font-size:15px">⚽ '+dateStr+' 정기 운동</div><div style="font-size:11px;color:var(--mut)">10:00 – 12:00</div></div>' +
+      makeDeadlineChip(fri) +
+    '</div>' +
+    (!past ?
+      '<div class="vbar">' +
+      '<button class="vbtn go '+(mv==='go'?'sel':'')+'" onclick="castVote(\'go\')">✅ 참석</button>' +
+      '<button class="vbtn maybe '+(mv==='maybe'?'sel':'')+'" onclick="castVote(\'maybe\')">🤔 미정</button>' +
+      '<button class="vbtn no '+(mv==='no'?'sel':'')+'" onclick="castVote(\'no\')">❌ 불참</button>' +
+      '</div>' : '') +
+    renderVoteGroups(votes) +
+    '<button data-panel="tp-sunday" data-votes="'+votesJson+'" data-open="0" onclick="onTeamBtnClick(this)" ' +
+      'style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--brd);background:var(--c1);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;margin:12px 0 8px">🔴 팀별 참석현황 ▼</button>' +
+    '<div id="tp-sunday" style="display:none;margin-bottom:10px"></div>' +
+    '<div class="ct" style="margin-top:4px;margin-bottom:6px">💬 댓글</div>' +
+    (comments.length ? '<div style="margin-bottom:8px">'+makeCommentRows(comments,'data-key="SUNDAY"','delComment')+'</div>' : '') +
+    '<div style="display:flex;gap:6px">' +
+      '<input id="ci-SUNDAY" type="text" placeholder="댓글 입력..." maxlength="60" style="margin-bottom:0;flex:1;font-size:13px">' +
+      '<button data-key="SUNDAY" onclick="postComment(this)" style="background:var(--g);color:#000;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">등록</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderExtraVoteCard(e) {
+  var dl = new Date(e.deadlineDate+'T'+e.deadlineTime);
+  var past = new Date() > dl;
+  var myV = e.votes && e.votes[me];
+  var votes = e.votes || {};
+  var thread = (e.comments && e.comments['_thread']) ? e.comments['_thread'] : [];
+  var votesJson = JSON.stringify(votes).replace(/"/g,'&quot;');
+  var panelId = 'tp-'+e.id;
+
+  return '<div class="vcard" style="border-color:rgba(255,214,0,.35)">' +
+    '<div style="font-size:10px;color:var(--yel);margin-bottom:6px">📢 추가 운동 투표</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+      '<div><div style="font-weight:700;font-size:16px">'+e.title+'</div>' +
+      '<div style="font-size:11px;color:var(--mut)">🗓️ '+e.date+' '+( e.stime||'')+'~'+(e.etime||'')+'</div></div>' +
+      makeDeadlineChip(dl) +
+    '</div>' +
+    (!past ?
+      '<div class="vbar">' +
+      '<button class="vbtn go '+(myV==='go'?'sel':'')+'" data-evid="'+e.id+'" data-v="go" onclick="castExtraVote(this)">✅ 참석</button>' +
+      '<button class="vbtn maybe '+(myV==='maybe'?'sel':'')+'" data-evid="'+e.id+'" data-v="maybe" onclick="castExtraVote(this)">🤔 미정</button>' +
+      '<button class="vbtn no '+(myV==='no'?'sel':'')+'" data-evid="'+e.id+'" data-v="no" onclick="castExtraVote(this)">❌ 불참</button>' +
+      '</div>' : '') +
+    renderVoteGroups(votes) +
+    '<button data-panel="'+panelId+'" data-votes="'+votesJson+'" data-open="0" onclick="onTeamBtnClick(this)" ' +
+      'style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--brd);background:var(--c1);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;margin:12px 0 8px">🔴 팀별 참석현황 ▼</button>' +
+    '<div id="'+panelId+'" style="display:none;margin-bottom:10px"></div>' +
+    '<div class="ct" style="margin-top:4px;margin-bottom:6px">💬 댓글</div>' +
+    (thread.length ? '<div style="margin-bottom:8px">'+makeCommentRows(thread,'data-evid="'+e.id+'"','delExtraComment')+'</div>' : '') +
+    '<div style="display:flex;gap:6px">' +
+      '<input id="ci-'+e.id+'" type="text" placeholder="댓글 입력..." maxlength="60" style="margin-bottom:0;flex:1;font-size:13px">' +
+      '<button data-evid="'+e.id+'" onclick="postExtraComment(this)" style="background:var(--g);color:#000;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">등록</button>' +
+    '</div>' +
+  '</div>';
+}
+
+// ── VOTE ACTIONS ──
+function castVote(v) {
+  if (!me) { openNameModal(false); showToast('이름을 먼저 설정해주세요!'); return; }
+  if (pastDeadline()) { showToast('⏰ 정기운동 투표 마감됐습니다'); return; }
+  if (!S.votes) S.votes = {};
+  S.votes[me] = v;
+  saveState(); renderVote(); renderHome();
+  showToast(v==='go'?'✅ 참석!':v==='maybe'?'🤔 미정':'❌ 불참');
+}
+
+function castExtraVote(btn) {
+  if (!me) { openNameModal(false); showToast('이름을 먼저 설정해주세요!'); return; }
+  var id = btn.getAttribute('data-evid');
+  var v  = btn.getAttribute('data-v');
+  var ev = (S.extraVotes||[]).filter(function(e){ return e.id===id; })[0];
+  if (!ev) return;
+  var dl = new Date(ev.deadlineDate+'T'+ev.deadlineTime);
+  if (new Date() > dl) { showToast('⏰ 마감됐습니다'); return; }
+  if (!ev.votes) ev.votes = {};
+  ev.votes[me] = v;
+  saveState(); renderVote(); renderHome();
+  showToast(v==='go'?'✅ 참석!':v==='maybe'?'🤔 미정':'❌ 불참');
+}
+
+// ── COMMENT ──
+function postComment(btn) {
+  if (!me) { openNameModal(false); return; }
+  var key = btn.getAttribute('data-key');
+  var inp = el('ci-'+key);
+  if (!inp || !inp.value.trim()) return;
+  if (!S.comments) S.comments = {};
+  if (!S.comments[key]) S.comments[key] = [];
+  var now = new Date();
+  S.comments[key].push({ author:me, text:inp.value.trim(), time:(now.getMonth()+1)+'/'+now.getDate()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0') });
+  inp.value = '';
+  saveState(); renderVote();
+}
+
+function delComment(btn) {
+  var key = btn.getAttribute('data-key');
+  var idx = parseInt(btn.getAttribute('data-idx'));
+  if (!S.comments || !S.comments[key]) return;
+  if (S.comments[key][idx].author !== me && !admIn) return;
+  S.comments[key].splice(idx, 1);
+  saveState(); renderVote();
+}
+
+function postExtraComment(btn) {
+  if (!me) { openNameModal(false); return; }
+  var id = btn.getAttribute('data-evid');
+  var inp = el('ci-'+id);
+  if (!inp || !inp.value.trim()) return;
+  var ev = (S.extraVotes||[]).filter(function(e){ return e.id===id; })[0];
+  if (!ev) return;
+  if (!ev.comments) ev.comments = {};
+  if (!ev.comments['_thread']) ev.comments['_thread'] = [];
+  var now = new Date();
+  ev.comments['_thread'].push({ author:me, text:inp.value.trim(), time:(now.getMonth()+1)+'/'+now.getDate()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0') });
+  inp.value = '';
+  saveState(); renderVote();
+}
+
+function delExtraComment(btn) {
+  var id = btn.getAttribute('data-evid');
+  var idx = parseInt(btn.getAttribute('data-idx'));
+  var ev = (S.extraVotes||[]).filter(function(e){ return e.id===id; })[0];
+  if (!ev || !ev.comments || !ev.comments['_thread']) return;
+  if (ev.comments['_thread'][idx].author !== me && !admIn) return;
+  ev.comments['_thread'].splice(idx, 1);
+  saveState(); renderVote();
+}
+
+// ── STATS & MOM ──
+function renderStats() {
+  renderMomSection();
+  var matches = S.matches || [];
+  if (!matches.length) { setHTML('s-att','<div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">기록 없음</div>'); setHTML('s-rate','<div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">기록 없음</div>'); return; }
+  var cnt = {};
+  (S.members||[]).forEach(function(n){ cnt[n]=0; });
+  matches.forEach(function(m){ (m.attendees||[]).forEach(function(n){ cnt[n]=(cnt[n]||0)+1; }); });
+  var total = matches.length;
+  var sorted = Object.keys(cnt).filter(function(n){ return cnt[n]>0; }).sort(function(a,b){ return cnt[b]-cnt[a]; });
+  setHTML('s-att', sorted.map(function(n,i){
+    return '<div class="rank-item"><div class="rank-num">'+(i+1)+'위</div><div class="rank-name">'+n+'</div><div class="rank-val">'+cnt[n]+'회</div></div>';
+  }).join('') || '<div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">기록 없음</div>');
+  setHTML('s-rate', (S.members||[]).map(function(n){
+    var pct = total ? Math.round((cnt[n]||0)/total*100) : 0;
+    var col = pct>=80?'var(--g)':pct>=50?'var(--yel)':'var(--red)';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--brd)">' +
+      '<div style="min-width:60px;font-size:13px">'+n+'</div>' +
+      '<div style="flex:1"><div class="pw"><div class="pb" style="width:'+pct+'%;background:'+col+'"></div></div></div>' +
+      '<div style="font-size:11px;color:var(--mut);min-width:36px;text-align:right">'+(cnt[n]||0)+'/'+total+'</div>' +
+      '</div>';
+  }).join('') || '<div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">기록 없음</div>');
+}
+
+function renderMomSection() {
+  if (!el('sm-vote')) return;
+  checkMomExpiry();
+  var last = S.matches && S.matches.length ? S.matches[S.matches.length-1] : null;
+  var active = S.momActive;
+  var deadline = S.momDeadline ? new Date(S.momDeadline) : null;
+  var showVote = el('sm-vote'), showDone = el('sm-done'), showNoatt = el('sm-noatt');
+  showVote.style.display='none'; showDone.style.display='none'; showNoatt.style.display='none';
+  if (active && deadline) {
+    var timer = el('sm-timer');
+    if (timer) timer.textContent = '마감까지 ' + deadlineDiffStr(deadline);
+    var isAtt = last && last.attendees && last.attendees.indexOf(me) !== -1;
+    var voted = S.momVoters && S.momVoters[me];
+    if (voted) { showDone.style.display='block'; }
+    else if (isAtt) {
+      showVote.style.display='block';
+      setHTML('sm-grid', (last.attendees||[]).filter(function(n){ return n!==me; }).map(function(n){
+        var sel = selMomName===n;
+        return '<div class="mpl'+(sel?' sel':'')+'" onclick="pickMom(\''+n+'\',this)">⚽ '+n+'</div>';
+      }).join(''));
+    } else { showNoatt.style.display='block'; }
+  }
+  // 명예의 전당
+  var momCnt = {};
+  (S.matches||[]).forEach(function(m){ if (m.mom) momCnt[m.mom]=(momCnt[m.mom]||0)+1; });
+  var hall = Object.keys(momCnt).sort(function(a,b){ return momCnt[b]-momCnt[a]; });
+  setHTML('sm-hall', hall.length ? hall.map(function(n,i){
+    return '<div class="rank-item"><div class="rank-num">'+(i+1)+'위</div><div class="rank-name">'+n+'</div><div class="rank-val">⭐'+momCnt[n]+'회</div></div>';
+  }).join('') : '<div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">아직 기록이 없습니다</div>');
+  // 최근 4주
+  var recent = (S.matches||[]).slice(-4).reverse();
+  setHTML('sm-recent', recent.length ? recent.map(function(m){
+    return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--brd)">' +
+      '<div style="font-size:13px">'+m.date+'</div>' +
+      '<div style="font-size:13px;color:var(--yel);font-weight:700">'+(m.mom||'-')+'</div>' +
+    '</div>';
+  }).join('') : '<div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">최근 4주 기록 없음</div>');
+}
+
+function pickMom(name, elem) {
+  selMomName = name;
+  var items = document.querySelectorAll('.mpl');
+  for (var i=0;i<items.length;i++) items[i].classList.remove('sel');
+  elem.classList.add('sel');
+}
+
+function submitMomVote() {
+  if (!selMomName) { showToast('투표할 선수를 선택하세요'); return; }
+  var last = S.matches && S.matches.length ? S.matches[S.matches.length-1] : null;
+  if (!last) return;
+  if (!last.momVotes) last.momVotes = {};
+  last.momVotes[selMomName] = (last.momVotes[selMomName]||0)+1;
+  if (!S.momVoters) S.momVoters = {};
+  S.momVoters[me] = true;
+  var votes = Object.entries(last.momVotes).sort(function(a,b){ return b[1]-a[1]; });
+  if (votes.length) last.mom = votes[0][0];
+  saveState(); renderMomSection(); renderHome();
+  showToast('⭐ MOM 투표 완료!');
+}
+
+function checkMomExpiry() {
+  if (S.momActive && S.momDeadline && new Date() > new Date(S.momDeadline)) {
+    S.momActive = false;
+    S.momDeadline = null;
+    saveState();
+  }
+}
+
+// ── RULES ──
+function renderRules() {
+  var ru = el('rules-updated');
+  if (ru) ru.textContent = S.rulesUpdated ? '최종수정: '+S.rulesUpdated : '';
+  var rules = S.rules || [];
+  if (!rules.length) {
+    setHTML('rules-view','<div style="color:var(--mut);font-size:13px;text-align:center;padding:40px 0">아직 등록된 회칙이 없습니다<br><span style="font-size:11px">관리자가 회칙을 작성할 수 있습니다</span></div>');
+    return;
+  }
+  setHTML('rules-view', rules.map(function(r,i){
+    return '<div class="rule-item"><div style="display:flex;gap:10px;align-items:flex-start">' +
+      '<div class="rule-no">제'+(i+1)+'조</div>' +
+      '<div><div style="font-family:\'Noto Sans KR\';font-weight:700;font-size:15px;margin-bottom:5px;line-height:1.4">'+r.title+'</div>' +
+      (r.body ? '<div style="font-size:13px;color:var(--mut);line-height:1.8;white-space:pre-line">'+r.body+'</div>' : '') +
+      '</div></div></div>';
+  }).join(''));
+}
+
+// ── DUES ──
+function copyAcc() {
+  var text = '카카오뱅크 전도형 3333-06-0015299';
+  navigator.clipboard.writeText(text).then(function(){
+    showToast('📋 '+text+' 복사됐습니다');
+  }).catch(function(){
+    var e2 = document.createElement('textarea');
+    e2.value = text; document.body.appendChild(e2); e2.select();
+    document.execCommand('copy'); document.body.removeChild(e2);
+    showToast('📋 복사됐습니다');
+  });
+}
+
+// ── ADMIN ──
+function admLogin() {
+  var pw = (el('adm-pw')||{}).value || '';
+  var correct = S.settings && S.settings.adminPw ? S.settings.adminPw : '0009';
+  if (pw === correct) {
+    admIn = true;
+    el('admin-lock').style.display = 'none';
+    el('admin-panel').style.display = 'block';
+    renderAdmin();
+    showToast('✅ 관리자 모드');
+  } else { showToast('❌ 비밀번호 틀림'); }
+}
+function admLogout() {
+  admIn = false;
+  el('admin-lock').style.display = 'block';
+  el('admin-panel').style.display = 'none';
+}
+
+function renderAdmin() {
+  if (!admIn) return;
+  // 참석자 칩
+  setHTML('a-att', (S.members||[]).map(function(n){
+    var on = selAtt.indexOf(n) !== -1;
+    return '<div class="chip'+(on?' on':'')+'" onclick="togAtt(\''+n+'\')">'+n+'</div>';
+  }).join(''));
+  // 회비
+  var ym = ymKey(new Date());
+  var paid = (S.duesPaid && S.duesPaid[ym]) ? S.duesPaid[ym] : [];
+  setHTML('a-dues',
+    '<div style="margin-bottom:10px">' +
+    '<div style="font-size:12px;color:var(--mut);margin-bottom:6px">'+(S.members||[]).join(' ')+'</div>' +
+    '<button onclick="copyAllMembers()" style="background:var(--c2);border:1px solid var(--brd);color:var(--txt);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer">📋 회원이름 전체 복사</button>' +
+    '</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+    (S.members||[]).map(function(n){
+      var isPaid = paid.indexOf(n) !== -1;
+      return '<div onclick="togDues(\''+n+'\')" style="padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer;' +
+        'border:1px solid '+(isPaid?'var(--g)':'rgba(255,23,68,.4)')+';' +
+        'background:'+(isPaid?'rgba(0,200,83,.1)':'rgba(255,23,68,.06)')+';' +
+        'color:'+(isPaid?'var(--g)':'var(--red)')+'">'+n+'</div>';
+    }).join('') + '</div>');
+  // 팀원
+  setHTML('a-members', (S.members||[]).map(function(n){
+    var dn = S.deviceNames || {};
+    var regDid = null;
+    Object.keys(dn).forEach(function(k){ if(dn[k]===n) regDid=k; });
+    return '<div class="sr">' +
+      '<span style="font-size:14px;flex:1">'+n+(regDid?'<span style="font-size:10px;color:var(--g);background:rgba(0,200,83,.1);padding:1px 6px;border-radius:10px;margin-left:6px">등록됨</span>':'')+' </span>' +
+      (regDid ? '<button data-did="'+regDid+'" onclick="deleteDeviceName(this)" style="background:var(--yel);color:#000;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px">초기화</button>' : '') +
+      '<button onclick="removeMember(\''+n+'\')" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">삭제</button>' +
+    '</div>';
+  }).join(''));
+  // 팀 배정
+  setHTML('a-team-assign', (S.members||[]).length ? (S.members||[]).map(function(n){
+    var cur = (S.memberTeams||{})[n] || '';
+    return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--brd)">' +
+      '<span style="flex:1;font-size:14px">'+n+'</span>' +
+      TEAMS.map(function(t){
+        var active = cur===t;
+        return '<button data-name="'+n+'" data-team="'+t+'" onclick="assignTeam(this)" style="' +
+          'border:1px solid '+TEAM_BRD[t]+';border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer;' +
+          'background:'+(active?TEAM_BG[t]:'transparent')+';' +
+          'color:'+(active?TEAM_COLOR[t]:'var(--mut)')+';font-weight:'+(active?'700':'400')+'">'+t+'</button>';
+      }).join('') +
+      '<button data-name="'+n+'" data-team="" onclick="assignTeam(this)" style="' +
+        'border:1px solid var(--brd);border-radius:14px;padding:3px 8px;font-size:11px;cursor:pointer;' +
+        'background:'+(cur===''?'var(--brd)':'transparent')+';color:var(--mut)">없음</button>' +
+    '</div>';
+  }).join('') : '<div style="color:var(--mut);font-size:13px">팀원을 먼저 등록하세요</div>');
+  // 이름 등록 현황
+  var dn = S.deviceNames || {};
+  var devKeys = Object.keys(dn);
+  setHTML('a-devices', devKeys.length ? devKeys.map(function(did){
+    var isMine = did === window._deviceId;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd)">' +
+      '<div style="flex:1"><span style="font-size:14px;font-weight:500">'+dn[did]+'</span>' +
+      (isMine ? ' <span style="font-size:10px;color:var(--blu)">(내 기기)</span>' : '') + '</div>' +
+      '<button data-did="'+did+'" data-name="'+dn[did]+'" onclick="editDeviceName(this)" style="background:var(--c2);color:var(--txt);border:1px solid var(--brd);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">수정</button>' +
+      '<button data-did="'+did+'" onclick="deleteDeviceName(this)" style="background:var(--yel);color:#000;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer">초기화</button>' +
+    '</div>';
+  }).join('') : '<div style="color:var(--mut);font-size:12px;text-align:center;padding:8px 0">등록된 기기 없음</div>');
+  // 회칙
+  editRules = cloneObj(S.rules || []);
+  renderAdminRules();
+  renderAdminExtraVotes();
+}
+
+function renderAdminRules() {
+  setHTML('a-rules-list', editRules.length ? editRules.map(function(r,i){
+    return '<div style="background:var(--c1);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;gap:8px;align-items:flex-start">' +
+      '<div style="flex:1"><div style="font-weight:700;font-size:13px;margin-bottom:4px">'+r.title+'</div>' +
+      (r.body ? '<div style="font-size:12px;color:var(--mut)">'+r.body.substring(0,50)+(r.body.length>50?'...':'')+'</div>' : '') + '</div>' +
+      '<button onclick="removeRuleItem('+i+')" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;flex-shrink:0">삭제</button>' +
+    '</div>';
+  }).join('') : '<div style="color:var(--mut);font-size:12px;text-align:center;padding:6px 0">조항 없음</div>');
+}
+
+function renderAdminExtraVotes() {
+  var evs = (S.extraVotes||[]).filter(function(e){ return e.active; });
+  setHTML('ev-list', evs.length ? evs.map(function(e){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--c1);border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
+      '<div><div style="font-size:13px;font-weight:700">'+e.title+'</div>' +
+      '<div style="font-size:11px;color:var(--mut)">'+e.date+' '+( e.stime||'')+'~'+(e.etime||'')+'</div></div>' +
+      '<button onclick="closeExtraVote(\''+e.id+'\')" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">마감</button>' +
+    '</div>';
+  }).join('') : '');
+}
+
+// ── ADMIN ACTIONS ──
+function togAtt(name) {
+  var idx = selAtt.indexOf(name);
+  if (idx===-1) selAtt.push(name); else selAtt.splice(idx,1);
+  renderAdmin();
+}
+
+function saveAttendees() {
+  if (!selAtt.length) { showToast('참석자를 선택하세요'); return; }
+  var date = (el('a-date')||{}).value || new Date().toISOString().split('T')[0];
+  if (!S.matches) S.matches = [];
+  S.matches.push({ date:date, attendees:cloneObj(selAtt), mom:null, momVotes:{} });
+  S.momActive = true;
+  S.momVoters = {};
+  var dl = new Date(); dl.setHours(dl.getHours()+12);
+  S.momDeadline = dl.toISOString();
+  selAtt = [];
+  saveState(); renderAll();
+  showToast('✅ 참석자 저장 + MOM 투표 오픈!');
+}
+
+function addMember() {
+  var name = (el('a-new-member')||{}).value.trim();
+  if (!name) return;
+  if (!S.members) S.members = [];
+  if (S.members.indexOf(name)===-1) { S.members.push(name); saveState(); renderAdmin(); }
+  el('a-new-member').value = '';
+}
+
+function removeMember(name) {
+  S.members = (S.members||[]).filter(function(n){ return n!==name; });
+  saveState(); renderAdmin();
+}
+
+function togDues(name) {
+  var ym = ymKey(new Date());
+  if (!S.duesPaid) S.duesPaid = {};
+  if (!S.duesPaid[ym]) S.duesPaid[ym] = [];
+  var idx = S.duesPaid[ym].indexOf(name);
+  if (idx===-1) S.duesPaid[ym].push(name); else S.duesPaid[ym].splice(idx,1);
+  saveState(); renderAdmin();
+}
+
+function copyAllMembers() {
+  var names = (S.members||[]).join(' ');
+  navigator.clipboard.writeText(names).then(function(){ showToast('📋 회원 이름 복사됐습니다'); });
+}
+
+function assignTeam(btn) {
+  var name = btn.getAttribute('data-name');
+  var team = btn.getAttribute('data-team');
+  if (!S.memberTeams) S.memberTeams = {};
+  if (team) S.memberTeams[name] = team; else delete S.memberTeams[name];
+  saveState(); renderAdmin();
+  showToast(team ? name+'→'+team : name+' 팀 해제');
+}
+
+function deleteDeviceName(btn) {
+  var did = btn.getAttribute('data-did');
+  if (!S.deviceNames || !S.deviceNames[did]) return;
+  var name = S.deviceNames[did];
+  delete S.deviceNames[did];
+  if (did === window._deviceId) { me=''; localStorage.removeItem('fm_me'); updateNameLbl(); }
+  saveState(); renderAdmin();
+  showToast('🔓 '+name+' 초기화됐습니다');
+}
+
+function editDeviceName(btn) {
+  var did = btn.getAttribute('data-did');
+  var name = btn.getAttribute('data-name');
+  var newName = prompt("'"+name+"'의 이름을 변경하세요:", name);
+  if (!newName || !newName.trim() || newName.trim()===name) return;
+  newName = newName.trim();
+  var dn = S.deviceNames || {};
+  if (Object.values(dn).indexOf(newName)!==-1) { showToast('⚠️ 이미 사용 중인 이름'); return; }
+  if (S.votes && S.votes[name]!==undefined) { S.votes[newName]=S.votes[name]; delete S.votes[name]; }
+  if (S.members) { var mi=S.members.indexOf(name); if(mi!==-1) S.members[mi]=newName; }
+  S.deviceNames[did] = newName;
+  if (did===window._deviceId) { me=newName; localStorage.setItem('fm_me',me); updateNameLbl(); }
+  saveState(); renderAll(); renderAdmin();
+  showToast('✅ '+name+'→'+newName+' 변경됐습니다');
+}
+
+function createExtraVote() {
+  var title   = (el('ev-title')||{}).value.trim();
+  var date    = (el('ev-date')||{}).value;
+  var stime   = (el('ev-stime')||{}).value;
+  var etime   = (el('ev-etime')||{}).value;
+  var dlDate  = (el('ev-dl-date')||{}).value;
+  var dlTime  = (el('ev-dl-time')||{}).value;
+  if (!title||!date||!dlDate) { showToast('제목, 운동날짜, 마감날짜를 입력하세요'); return; }
+  if (!S.extraVotes) S.extraVotes = [];
+  S.extraVotes.push({ id:'ev_'+Date.now(), title:title, date:date, stime:stime, etime:etime, deadlineDate:dlDate, deadlineTime:dlTime, active:true, votes:{}, comments:{} });
+  el('ev-title').value=''; el('ev-date').value=''; el('ev-dl-date').value='';
+  saveState(); renderVote(); renderAdmin(); renderHome();
+  showToast('🗓️ 투표 생성됐습니다!');
+}
+
+function closeExtraVote(id) {
+  var ev = (S.extraVotes||[]).filter(function(e){ return e.id===id; })[0];
+  if (ev) ev.active = false;
+  saveState(); renderVote(); renderAdmin();
+  showToast('투표 마감됐습니다');
+}
+
+function resetVotes() {
+  if (!confirm('정기운동 투표를 초기화할까요?')) return;
+  S.votes = {};
+  saveState(); renderAll();
+  showToast('🔄 투표 초기화됐습니다');
+}
+
+function addRuleItem() {
+  editRules.push({ title:'새 조항', body:'' });
+  renderAdminRules();
+}
+function removeRuleItem(i) {
+  editRules.splice(i,1);
+  renderAdminRules();
+}
+function saveRules() {
+  S.rules = cloneObj(editRules);
+  var now = new Date();
+  S.rulesUpdated = now.getFullYear()+'.'+(now.getMonth()+1).toString().padStart(2,'0')+'.'+now.getDate().toString().padStart(2,'0');
+  saveState(); renderRules();
+  showToast('📜 회칙 저장됐습니다');
+}
+function parseBulkRules() {
+  var raw = (el('a-rules-bulk')||{}).value.trim();
+  if (!raw) { showToast('텍스트를 입력하세요'); return; }
+  var lines = raw.split('\n');
+  var rules = [];
+  var current = null;
+  for (var i=0;i<lines.length;i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    var titleMatch = line.match(/^(\d+)\.\s*(.+)/);
+    if (titleMatch) { if(current) rules.push(current); current={title:titleMatch[2].trim(),body:''}; continue; }
+    var bulletMatch = line.match(/^[-•]\s*(.+)/);
+    if (bulletMatch && current) { if(current.body) current.body+='\n'; current.body+='• '+bulletMatch[1].trim(); continue; }
+    if ((line.startsWith('(')||line.startsWith('（')) && current && current.body) { current.body+=' '+line; continue; }
+    if (!current) current={title:line,body:''}; else { if(current.body) current.body+='\n'; current.body+=line; }
+  }
+  if (current) rules.push(current);
+  if (!rules.length) { showToast('파싱 실패: 형식을 확인하세요'); return; }
+  S.rules = rules;
+  var now = new Date();
+  S.rulesUpdated = now.getFullYear()+'.'+(now.getMonth()+1).toString().padStart(2,'0')+'.'+now.getDate().toString().padStart(2,'0');
+  editRules = cloneObj(rules);
+  saveState(); renderRules(); renderAdminRules();
+  el('a-rules-bulk').value = '';
+  showToast('📜 '+rules.length+'개 조항 저장됐습니다!');
+}
+
+// ── NAME ──
+function openNameModal(first) {
+  isFirst = first;
+  var did = window._deviceId;
+  var alreadyReg = S.deviceNames && S.deviceNames[did];
+  if (alreadyReg && !admIn && !first) { showToast('이름은 관리자만 변경할 수 있어요 🔒'); return; }
+  var taken = S.deviceNames ? Object.values(S.deviceNames) : [];
+  var sel = el('mo-sel');
+  if (sel) {
+    sel.innerHTML = '<option value="">-- 팀원 선택 --</option>' +
+      (S.members||[]).filter(function(n){ return taken.indexOf(n)===-1||n===me; })
+      .map(function(n){ return '<option value="'+n+'"'+(n===me?' selected':'')+'>'+n+'</option>'; }).join('');
+  }
+  var inp = el('mo-inp'); if (inp) inp.value = me;
+  var mf = el('mo-first'); if (mf) mf.style.display = first?'block':'none';
+  var mc = el('mo-cancel'); if (mc) mc.style.display = first?'none':'block';
+  var mo = el('mo-name'); if (mo) mo.classList.add('op');
+}
+
+function saveName() {
+  var inp = el('mo-inp');
+  var name = inp ? inp.value.trim() : '';
+  if (!name) { showToast('이름을 입력해야 시작할 수 있어요!'); return; }
+  var did = window._deviceId;
+  if (!S.deviceNames) S.deviceNames = {};
+  var existingDevice = null;
+  Object.keys(S.deviceNames).forEach(function(k){ if(S.deviceNames[k]===name&&k!==did) existingDevice=k; });
+  if (existingDevice) { showToast('⚠️ 이미 다른 기기에서 사용 중인 이름이에요!'); return; }
+  if (S.deviceNames[did] && S.deviceNames[did]!==name && !admIn) { showToast('⚠️ 이름은 관리자만 변경할 수 있어요'); return; }
+  S.deviceNames[did] = name;
+  me = name;
+  localStorage.setItem('fm_me', me);
+  saveState(); updateNameLbl(); closeModal('mo-name');
+  renderVote(); renderStats();
+  showToast(isFirst ? '👋 '+me+'님 환영합니다!' : '✅ '+me+'(으)로 변경됐습니다');
+}
+
+function updateNameLbl() {
+  var e = el('nameLbl'); if (e) e.textContent = me || '이름 설정';
+}
+
+function closeModal(id) {
+  var e = el(id); if (e) e.classList.remove('op');
+}
+
+// ── NAV ──
+function go(name) {
+  var pgs = document.querySelectorAll('.pg');
+  var nbs = document.querySelectorAll('.nb');
+  for (var i=0;i<pgs.length;i++) pgs[i].classList.remove('on');
+  for (var i=0;i<nbs.length;i++) nbs[i].classList.remove('on');
+  var pge = el('pg-'+name); if (pge) pge.classList.add('on');
+  var pages = ['home','vote','stats','dues','rules','admin'];
+  var idx = pages.indexOf(name);
+  if (idx!==-1 && nbs[idx]) nbs[idx].classList.add('on');
+  if (name==='admin' && !admIn) { el('admin-panel').style.display='none'; el('admin-lock').style.display='block'; }
+  if (name==='stats') renderMomSection();
+}
+
+// ── TOAST ──
+function showToast(msg, dur) {
+  dur = dur||2200;
+  var t = el('toast'); if (!t) return;
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, dur);
+}
+
+// ── START ──
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
