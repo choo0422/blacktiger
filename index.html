@@ -431,104 +431,103 @@ function getWeatherLabel(code) {
 function loadWeather(gameDate) {
   var now = new Date();
   var today = now.toISOString().split('T')[0];
+  var dayDiff = gameDate ? Math.round((new Date(gameDate) - new Date(today)) / 86400000) : 0;
 
-  // 오늘 현재 날씨 + 운동일 날씨 (7일 이내면 예보)
-  var dates = [today];
-  if (gameDate && gameDate !== today) dates.push(gameDate);
+  // end_date는 gameDate가 있고 7일 이내면 gameDate, 아니면 today
+  var endDate = (gameDate && dayDiff >= 0 && dayDiff <= 16) ? gameDate : today;
 
-  var startDate = dates[0];
-  var endDate = dates[dates.length-1];
-
-  // 날짜 범위가 7일 초과하면 예보 불가
-  var dayDiff = gameDate ? Math.round((new Date(gameDate)-new Date(today))/(1000*60*60*24)) : 0;
-
-  var url = 'https://api.open-meteo.com/v1/forecast?' +
-    'latitude='+STADIUM_LAT+'&longitude='+STADIUM_LNG +
-    '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max' +
+  var url = 'https://api.open-meteo.com/v1/forecast' +
+    '?latitude=' + STADIUM_LAT +
+    '&longitude=' + STADIUM_LNG +
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max' +
     '&timezone=Asia%2FSeoul' +
-    '&start_date='+startDate +
-    '&end_date='+(dayDiff<=7 && gameDate ? gameDate : startDate);
+    '&start_date=' + today +
+    '&end_date=' + endDate;
 
   fetch(url)
-    .then(function(r){
-      if (!r.ok) throw new Error('HTTP '+r.status);
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     })
-    .then(function(data){
-      if (!data || !data.daily) {
-        throw new Error('날씨 데이터 없음');
-      }
-      var days = data.daily;
+    .then(function(data) {
+      var days = data && data.daily;
+      if (!days) throw new Error('데이터 없음');
+
       var nowEl = el('h-weather-now');
       var gameEl = el('h-weather-game');
       var updEl = el('h-weather-updated');
 
-      // 현재 날씨 (오늘)
+      // 오늘 날씨
       var todayIdx = days.time.indexOf(today);
       if (todayIdx >= 0 && nowEl) {
-        var code = days.weathercode[todayIdx];
-        var tmax = days.temperature_2m_max[todayIdx];
-        var tmin = days.temperature_2m_min[todayIdx];
-        var rain = days.precipitation_probability_max[todayIdx];
-        var wind = days.windspeed_10m_max[todayIdx];
+        var code = days.weather_code[todayIdx];
+        var tmax = Math.round(days.temperature_2m_max[todayIdx] * 10) / 10;
+        var tmin = Math.round(days.temperature_2m_min[todayIdx] * 10) / 10;
+        var rain = days.precipitation_probability_max[todayIdx] || 0;
+        var wind = Math.round(days.wind_speed_10m_max[todayIdx] * 10) / 10;
+        var label = getWeatherLabel(code);
+        var icon = label.split(' ')[0];
+        var desc = label.split(' ').slice(1).join(' ');
         nowEl.innerHTML =
-          '<div style="display:flex;align-items:center;justify-content:center;gap:16px">' +
+          '<div style="display:flex;align-items:center;justify-content:center;gap:20px">' +
             '<div style="text-align:center">' +
-              '<div style="font-size:28px;margin-bottom:4px">'+getWeatherLabel(code).split(' ')[0]+'</div>' +
-              '<div style="font-size:12px;color:var(--txt)">'+getWeatherLabel(code).split(' ').slice(1).join(' ')+'</div>' +
+              '<div style="font-size:36px">' + icon + '</div>' +
+              '<div style="font-size:12px;color:var(--txt);margin-top:2px">' + desc + '</div>' +
             '</div>' +
-            '<div style="text-align:left;font-size:13px;line-height:2">' +
-              '<div>🌡️ '+tmin+'°~ '+tmax+'°C</div>' +
-              '<div>🌧️ 강수 '+rain+'%</div>' +
-              '<div>💨 바람 '+wind+'km/h</div>' +
+            '<div style="font-size:13px;line-height:2.2">' +
+              '<div>🌡️ ' + tmin + '° ~ ' + tmax + '°C</div>' +
+              '<div>🌧️ 강수 ' + rain + '%</div>' +
+              '<div>💨 바람 ' + wind + 'km/h</div>' +
             '</div>' +
           '</div>';
       }
 
-      // 운동일 날씨 (다른 날인 경우)
+      // 운동일 날씨
       if (gameDate && gameDate !== today && gameEl) {
         var gameIdx = days.time.indexOf(gameDate);
         if (gameIdx >= 0) {
-          var gcode = days.weathercode[gameIdx];
-          var gtmax = days.temperature_2m_max[gameIdx];
-          var gtmin = days.temperature_2m_min[gameIdx];
-          var grain = days.precipitation_probability_max[gameIdx];
-          var gwind = days.windspeed_10m_max[gameIdx];
-          var gd = new Date(gameDate);
-          var gdStr = (gd.getMonth()+1)+'월 '+gd.getDate()+'일';
+          var gcode = days.weather_code[gameIdx];
+          var gtmax = Math.round(days.temperature_2m_max[gameIdx] * 10) / 10;
+          var gtmin = Math.round(days.temperature_2m_min[gameIdx] * 10) / 10;
+          var grain = days.precipitation_probability_max[gameIdx] || 0;
+          var gwind = Math.round(days.wind_speed_10m_max[gameIdx] * 10) / 10;
+          var glabel = getWeatherLabel(gcode);
+          var gicon = glabel.split(' ')[0];
+          var gdesc = glabel.split(' ').slice(1).join(' ');
+          var gd = new Date(gameDate + 'T00:00:00');
+          var gdStr = (gd.getMonth()+1) + '월 ' + gd.getDate() + '일';
           gameEl.style.display = 'block';
           gameEl.innerHTML =
             '<div style="border-top:1px solid var(--brd);margin-top:10px;padding-top:10px">' +
-            '<div style="font-size:11px;color:var(--yel);font-weight:700;margin-bottom:8px">⚽ '+gdStr+' 운동 예보</div>' +
-            '<div style="display:flex;align-items:center;justify-content:center;gap:16px">' +
+            '<div style="font-size:11px;color:var(--yel);font-weight:700;margin-bottom:8px">⚽ ' + gdStr + ' 운동 예보</div>' +
+            '<div style="display:flex;align-items:center;justify-content:center;gap:20px">' +
               '<div style="text-align:center">' +
-                '<div style="font-size:24px;margin-bottom:4px">'+getWeatherLabel(gcode).split(' ')[0]+'</div>' +
-                '<div style="font-size:12px;color:var(--txt)">'+getWeatherLabel(gcode).split(' ').slice(1).join(' ')+'</div>' +
+                '<div style="font-size:30px">' + gicon + '</div>' +
+                '<div style="font-size:12px;color:var(--txt);margin-top:2px">' + gdesc + '</div>' +
               '</div>' +
-              '<div style="text-align:left;font-size:13px;line-height:2">' +
-                '<div>🌡️ '+gtmin+'°~ '+gtmax+'°C</div>' +
-                '<div>🌧️ 강수 '+grain+'%</div>' +
-                '<div>💨 바람 '+gwind+'km/h</div>' +
+              '<div style="font-size:13px;line-height:2.2">' +
+                '<div>🌡️ ' + gtmin + '° ~ ' + gtmax + '°C</div>' +
+                '<div>🌧️ 강수 ' + grain + '%</div>' +
+                '<div>💨 바람 ' + gwind + 'km/h</div>' +
               '</div>' +
             '</div>' +
             '</div>';
-        } else if (dayDiff > 7) {
+        } else if (dayDiff > 16) {
           gameEl.style.display = 'block';
-          gameEl.innerHTML =
-            '<div style="border-top:1px solid var(--brd);margin-top:10px;padding-top:10px;text-align:center;font-size:12px;color:var(--mut)">⚽ 운동 당일 예보는 7일 이내부터 제공됩니다</div>';
+          gameEl.innerHTML = '<div style="border-top:1px solid var(--brd);margin-top:10px;padding-top:10px;text-align:center;font-size:12px;color:var(--mut)">16일 이후 예보는 제공되지 않아요</div>';
         }
       } else if (gameEl) {
         gameEl.style.display = 'none';
       }
 
       if (updEl) {
-        updEl.textContent = now.getHours()+':'+String(now.getMinutes()).padStart(2,'0')+' 기준';
+        updEl.textContent = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0') + ' 기준';
       }
     })
-    .catch(function(e){
+    .catch(function(e) {
       console.warn('날씨 로드 실패:', e.message);
       var nowEl = el('h-weather-now');
-      if (nowEl) nowEl.innerHTML = '<div style="color:var(--mut);font-size:12px;text-align:center">날씨 정보를 불러올 수 없어요<br><span style="font-size:10px">'+e.message+'</span></div>';
+      if (nowEl) nowEl.innerHTML = '<div style="color:var(--mut);font-size:12px;text-align:center;padding:8px 0">날씨 정보를 불러올 수 없어요</div>';
     });
 }
 
