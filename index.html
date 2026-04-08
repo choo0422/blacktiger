@@ -408,6 +408,17 @@ textarea{resize:vertical;min-height:80px}
       </div>
     </div>
 
+    <!-- 🔴 팀 배정 관리 -->
+    <div class="adm-acc">
+      <button class="adm-acc-hd" onclick="toggleAcc('acc-teams')">
+        <span>🔴 팀 배정 관리</span><span class="adm-acc-arr" id="arr-acc-teams">▼</span>
+      </button>
+      <div class="adm-acc-bd" id="acc-teams" style="display:none">
+        <div style="font-size:12px;color:var(--mut);margin-bottom:10px">팀원 이름 옆 버튼으로 팀 배정 (흑호 / 현무 / 주작)</div>
+        <div id="a-team-assign"></div>
+      </div>
+    </div>
+
     <!-- 👥 팀원 관리 -->
     <div class="adm-acc">
       <button class="adm-acc-hd" onclick="toggleAcc('acc-members')">
@@ -675,6 +686,7 @@ var DEF = {
   rulesUpdated: '',
   deviceNames: {},
   memberRoles: {},
+  memberTeams: {},
   memberLeave: {},
   annualMembers: [],
   memberJoinDate: {},
@@ -1074,6 +1086,117 @@ function pastDeadline() {
 }
 
 // ── RENDER ALL ──
+
+var TEAMS = ['흑호', '현무', '주작'];
+var TEAM_COLOR = {'흑호':'var(--g)','현무':'var(--blu)','주작':'var(--red)'};
+var TEAM_BG    = {'흑호':'rgba(0,200,83,.1)','현무':'rgba(41,121,255,.1)','주작':'rgba(255,23,68,.08)'};
+var TEAM_BRD   = {'흑호':'rgba(0,200,83,.4)','현무':'rgba(41,121,255,.4)','주작':'rgba(255,23,68,.35)'};
+
+function renderTeamAssign() {
+  var el2 = el('a-team-assign');
+  if (!el2) return;
+  var mt = S.memberTeams || {};
+  if (!(S.members||[]).length) {
+    el2.innerHTML = '<div style="color:var(--mut);font-size:13px">팀원을 먼저 등록하세요</div>';
+    return;
+  }
+  el2.innerHTML = (S.members||[]).map(function(n){
+    var cur = mt[n] || '';
+    return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--brd)">' +
+      '<span style="flex:1;font-size:14px">' + n + '</span>' +
+      TEAMS.map(function(t){
+        var active = cur === t;
+        return '<button data-name="' + n + '" data-team="' + t + '" onclick="assignTeam(this)" style="' +
+          'border:1px solid ' + TEAM_BRD[t] + ';border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer;transition:.15s;' +
+          'background:' + (active ? TEAM_BG[t] : 'transparent') + ';' +
+          'color:' + (active ? TEAM_COLOR[t] : 'var(--mut)') + ';font-weight:' + (active ? '700' : '400') + '">' +
+          t + '</button>';
+      }).join('') +
+      '<button data-name="' + n + '" data-team="" onclick="assignTeam(this)" style="' +
+        'border:1px solid var(--brd);border-radius:14px;padding:3px 8px;font-size:11px;cursor:pointer;' +
+        'background:' + (cur === '' ? 'var(--c2)' : 'transparent') + ';color:var(--mut)">없음</button>' +
+    '</div>';
+  }).join('');
+}
+
+function assignTeam(btn) {
+  var name = btn.getAttribute('data-name');
+  var team = btn.getAttribute('data-team');
+  if (!S.memberTeams) S.memberTeams = {};
+  if (team) S.memberTeams[name] = team;
+  else delete S.memberTeams[name];
+  saveState();
+  renderTeamAssign();
+  showToast(team ? (name + ' → ' + team + ' 배정') : (name + ' 팀 해제'));
+}
+
+function makeTeamPanelHTML(votes) {
+  var mt = S.memberTeams || {};
+  var html = '';
+  var hasTeam = false;
+  TEAMS.forEach(function(team){
+    var members = (S.members||[]).filter(function(n){ return mt[n] === team; });
+    if (!members.length) return;
+    hasTeam = true;
+    var goes   = members.filter(function(n){ return votes[n]==='go'; });
+    var maybes = members.filter(function(n){ return votes[n]==='maybe'; });
+    var nos    = members.filter(function(n){ return votes[n]==='no'; });
+    var none   = members.filter(function(n){ return !votes[n]; });
+    function chips(arr, color, bg) {
+      return arr.map(function(n){
+        return '<span style="display:inline-block;padding:3px 10px;border-radius:14px;font-size:12px;margin:2px;background:' + bg + ';color:' + color + '">' + n + '</span>';
+      }).join('');
+    }
+    html += '<div style="border-left:3px solid ' + TEAM_COLOR[team] + ';padding:8px 10px;margin-bottom:8px;background:' + TEAM_BG[team] + ';border-radius:0 8px 8px 0">' +
+      '<div style="font-weight:700;font-size:13px;color:' + TEAM_COLOR[team] + ';margin-bottom:6px">' + team + '</div>' +
+      (goes.length   ? '<div style="margin-bottom:4px"><span style="font-size:11px;color:var(--g);font-weight:700">✅ ' + goes.length + '</span> ' + chips(goes,'var(--g)','rgba(0,200,83,.13)') + '</div>' : '') +
+      (maybes.length ? '<div style="margin-bottom:4px"><span style="font-size:11px;color:var(--yel);font-weight:700">🤔 ' + maybes.length + '</span> ' + chips(maybes,'var(--yel)','rgba(255,214,0,.12)') + '</div>' : '') +
+      (nos.length    ? '<div style="margin-bottom:4px"><span style="font-size:11px;color:var(--red);font-weight:700">❌ ' + nos.length + '</span> ' + chips(nos,'var(--red)','rgba(255,23,68,.1)') + '</div>' : '') +
+      (none.length   ? '<div><span style="font-size:11px;color:var(--mut);font-weight:700">⬜ ' + none.length + '</span> ' + chips(none,'var(--mut)','var(--c2)') + '</div>' : '') +
+    '</div>';
+  });
+  var unassigned = (S.members||[]).filter(function(n){ return !mt[n]; });
+  if (unassigned.length) {
+    html += '<div style="padding:8px 10px;margin-bottom:4px;background:var(--c2);border-radius:8px">' +
+      '<div style="font-size:11px;color:var(--mut);margin-bottom:4px">⬜ 미배정</div>' +
+      unassigned.map(function(n){
+        return '<span style="display:inline-block;padding:3px 10px;border-radius:14px;font-size:12px;margin:2px;background:var(--c1);color:var(--mut)">' + n + '</span>';
+      }).join('') +
+    '</div>';
+  }
+  if (!hasTeam) return '<div style="color:var(--mut);font-size:12px;text-align:center;padding:10px 0">관리탭에서 팀을 배정하면 표시됩니다</div>';
+  return html;
+}
+
+function onTeamBtnClick(btn) {
+  var panelId  = btn.getAttribute('data-panel');
+  var dataType = btn.getAttribute('data-type');
+  var isOpen   = btn.getAttribute('data-open') === '1';
+  var panel    = el(panelId);
+  if (!panel) return;
+  if (isOpen) {
+    panel.style.display = 'none';
+    btn.setAttribute('data-open','0');
+    btn.innerHTML = '🔴 팀별 참석현황 ▼';
+    btn.style.borderColor = 'var(--brd)';
+  } else {
+    panel.style.display = 'block';
+    btn.setAttribute('data-open','1');
+    btn.innerHTML = '🔴 팀별 참석현황 ▲';
+    btn.style.borderColor = 'var(--g)';
+    // votes 결정
+    var votes = {};
+    if (dataType === 'sunday') {
+      votes = S.votes || {};
+    } else {
+      var evid = btn.getAttribute('data-evid');
+      var ev = (S.extraVotes||[]).filter(function(e){ return e.id === evid; })[0];
+      if (ev) votes = ev.votes || {};
+    }
+    panel.innerHTML = makeTeamPanelHTML(votes);
+  }
+}
+
 function renderAll() {
   renderHome();
   renderVote();
@@ -1325,7 +1448,8 @@ function renderSundayVoteCard(isPast) {
       '<button class="vbtn no '+(mv==='no'?'sel':'')+'" onclick="castVote(\'no\')">❌ 불참</button>' +
       '</div>' : '') +
     renderVoteGroups(votes) +
-    '<div class="ct" style="margin-top:12px;margin-bottom:6px">💬 댓글</div>' +
+    '<button data-panel="tp-sunday" data-type="sunday" data-open="0" onclick="onTeamBtnClick(this)" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--brd);background:var(--c1);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;margin:10px 0 8px">🔴 팀별 참석현황 ▼</button>' +
+    '<div class="ct" style="margin-top:4px;margin-bottom:6px">💬 댓글</div>' +
     (comments.length ? '<div style="margin-bottom:8px">'+makeCommentRows(comments,'data-key="SUNDAY"','delComment')+'</div>' : '') +
     '<div style="display:flex;gap:6px">' +
       '<input id="ci-SUNDAY" type="text" placeholder="댓글 입력..." maxlength="60" style="margin-bottom:0;flex:1;font-size:13px">' +
@@ -1437,7 +1561,8 @@ function renderExtraVoteCard(e, isPast) {
       '</div>' : '') +
     renderVoteGroups(votes) +
     nonVoterSection +
-    '<div class="ct" style="margin-top:12px;margin-bottom:6px">💬 댓글</div>' +
+    '<button data-panel="tp-'+e.id+'" data-type="extra" data-evid="'+e.id+'" data-open="0" onclick="onTeamBtnClick(this)" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--brd);background:var(--c1);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;margin:10px 0 8px">🔴 팀별 참석현황 ▼</button>' +
+    '<div class="ct" style="margin-top:4px;margin-bottom:6px">💬 댓글</div>' +
     (thread.length ? '<div style="margin-bottom:8px">'+makeCommentRows(thread,'data-evid="'+e.id+'"','delExtraComment')+'</div>' : '') +
     '<div style="display:flex;gap:6px">' +
       '<input id="ci-'+e.id+'" type="text" placeholder="댓글 입력..." maxlength="60" style="margin-bottom:0;flex:1;font-size:13px">' +
@@ -2355,6 +2480,7 @@ function resetDeviceFromRole() {
 
 function setMemberRole(name, role) {
   if (!S.memberRoles) S.memberRoles = {};
+  if (!S.memberTeams) S.memberTeams = {};
   if (role === '회원') {
     delete S.memberRoles[name];
   } else {
