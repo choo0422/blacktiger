@@ -678,7 +678,7 @@ var WMO_CODE = {
 };
 
 var DEF = {
-  members: [],
+  members: ['추우람', '김한기', '김현기', '임주환', '전도형', '김태진', '김경민', '김규식', '김형수', '민경찬', '박연호', '김용준', '김창수', '배동선', '심찬용', '엄현성', '이재춘', '이충기', '정채훈'],
   votes: {},
   comments: {},
   matches: [],
@@ -851,7 +851,7 @@ function init() {
 
   // Supabase 동기화 먼저 → 완료 후 이름 모달 열기
   syncSupabase(function() {
-    if (!me) setTimeout(function(){ openNameModal(true); }, 200);
+    if (!me) setTimeout(function(){ openNameModal(true); }, 300);
   });
   setInterval(syncSupabase, 30000);
   setTimeout(refreshWeather, 1000);
