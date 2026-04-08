@@ -357,7 +357,10 @@ textarea{resize:vertical;min-height:80px}
           <input type="time" id="ev-dl-time" value="19:00" style="margin-bottom:0">
         </div>
         <div style="height:8px"></div>
-        <button class="btn btng btnsm" onclick="createExtraVote()" style="width:100%">투표 생성</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btng btnsm" onclick="createExtraVote()" style="flex:1">투표 생성</button>
+          <button class="btn btnb btnsm" onclick="openRepeatModal()" style="flex:1">🔁 반복 생성</button>
+        </div>
         <div id="ev-list" style="margin-top:10px"></div>
       </div>
     </div>
@@ -1197,6 +1200,155 @@ function onTeamBtnClick(btn) {
   }
 }
 
+
+var repeatCycle = 'week';
+var repeatDays  = [];
+
+function openRepeatModal() {
+  // 현재 폼 값 가져와서 기준으로 설정
+  var stime  = (el('ev-stime')||{}).value || '10:00';
+  var etime  = (el('ev-etime')||{}).value || '12:00';
+  // 날짜 기본값: 오늘부터 4주
+  var today  = new Date();
+  var end    = new Date(); end.setDate(end.getDate() + 28);
+  var fmt    = function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  var rpS    = el('rp-start'); if (rpS) rpS.value = fmt(today);
+  var rpE    = el('rp-end');   if (rpE) rpE.value  = fmt(end);
+  // 요일 초기화
+  repeatDays = [];
+  document.querySelectorAll('.rp-day-btn').forEach(function(b){
+    b.style.background = 'transparent';
+    b.style.color      = 'var(--mut)';
+    b.style.borderColor = 'var(--brd)';
+  });
+  updateRepeatPreview();
+  var mo = el('mo-repeat'); if (mo) mo.classList.add('op');
+}
+
+function setRepeat(cycle) {
+  repeatCycle = cycle;
+  el('rp-week').style.borderColor  = cycle==='week'  ? 'var(--g)' : 'var(--brd)';
+  el('rp-week').style.background   = cycle==='week'  ? 'rgba(0,200,83,.1)' : 'transparent';
+  el('rp-week').style.color        = cycle==='week'  ? 'var(--g)' : 'var(--mut)';
+  el('rp-2week').style.borderColor = cycle==='2week' ? 'var(--g)' : 'var(--brd)';
+  el('rp-2week').style.background  = cycle==='2week' ? 'rgba(0,200,83,.1)' : 'transparent';
+  el('rp-2week').style.color       = cycle==='2week' ? 'var(--g)' : 'var(--mut)';
+  updateRepeatPreview();
+}
+
+function toggleRepeatDay(btn) {
+  var day = parseInt(btn.getAttribute('data-day'));
+  var idx = repeatDays.indexOf(day);
+  if (idx === -1) {
+    repeatDays.push(day);
+    btn.style.background  = 'rgba(0,200,83,.15)';
+    btn.style.color       = 'var(--g)';
+    btn.style.borderColor = 'var(--g)';
+  } else {
+    repeatDays.splice(idx, 1);
+    btn.style.background  = 'transparent';
+    btn.style.color       = 'var(--mut)';
+    btn.style.borderColor = 'var(--brd)';
+  }
+  updateRepeatPreview();
+}
+
+function getRepeatDates() {
+  var startVal = (el('rp-start')||{}).value;
+  var endVal   = (el('rp-end')||{}).value;
+  if (!startVal || !endVal || !repeatDays.length) return [];
+
+  var start = new Date(startVal + 'T00:00:00');
+  var end   = new Date(endVal   + 'T00:00:00');
+  var dates = [];
+  var cur   = new Date(start);
+  var step  = repeatCycle === '2week' ? 14 : 7;
+
+  // 각 선택 요일별로 첫 날짜 찾기
+  repeatDays.forEach(function(day) {
+    var d = new Date(start);
+    // 시작일부터 해당 요일 첫 날 찾기
+    while (d.getDay() !== day) { d.setDate(d.getDate() + 1); }
+    // step 간격으로 end까지 추가
+    while (d <= end) {
+      dates.push(new Date(d));
+      d.setDate(d.getDate() + step);
+    }
+  });
+
+  // 날짜순 정렬
+  dates.sort(function(a,b){ return a-b; });
+  return dates;
+}
+
+function updateRepeatPreview() {
+  var prev = el('rp-preview');
+  if (!prev) return;
+  var dates = getRepeatDates();
+  if (!dates.length) {
+    prev.innerHTML = '<span style="color:var(--mut)">날짜와 요일을 선택하면 미리보기가 표시됩니다</span>';
+    return;
+  }
+  var dayNames = ['일','월','화','수','목','금','토'];
+  prev.innerHTML =
+    '<div style="font-size:12px;color:var(--g);font-weight:700;margin-bottom:6px">총 ' + dates.length + '개 투표 생성 예정</div>' +
+    dates.map(function(d){
+      var str = (d.getMonth()+1) + '/' + d.getDate() + ' (' + dayNames[d.getDay()] + ')';
+      return '<span style="display:inline-block;background:var(--c2);border-radius:6px;padding:2px 8px;font-size:12px;margin:2px">' + str + '</span>';
+    }).join('');
+}
+
+function createRepeatVotes() {
+  var title   = (el('ev-title')||{}).value.trim() || '정기 운동';
+  var stime   = (el('ev-stime')||{}).value || '10:00';
+  var etime   = (el('ev-etime')||{}).value || '12:00';
+  var addr    = (el('ev-addr')||{}).value.trim();
+  var dlDays  = parseInt((el('rp-dl-days')||{}).value || '2');
+  var dlTime  = (el('rp-dl-time')||{}).value || '19:00';
+  var evType  = window._evType || 'self';
+
+  var dates = getRepeatDates();
+  if (!dates.length) { showToast('날짜와 요일을 선택하세요'); return; }
+
+  if (!S.extraVotes) S.extraVotes = [];
+
+  var fmt = function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  var dayNames = ['일','월','화','수','목','금','토'];
+  var created = 0;
+
+  dates.forEach(function(d) {
+    var dateStr = fmt(d);
+    // 마감: dlDays일 전
+    var dlDate = new Date(d);
+    dlDate.setDate(dlDate.getDate() - dlDays);
+    var dlDateStr = fmt(dlDate);
+    // 제목에 날짜 자동 추가
+    var autoTitle = title + ' ' + (d.getMonth()+1) + '/' + d.getDate() + '(' + dayNames[d.getDay()] + ')';
+
+    S.extraVotes.push({
+      id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+      title: autoTitle,
+      date: dateStr,
+      stime: stime,
+      etime: etime,
+      deadlineDate: dlDateStr,
+      deadlineTime: dlTime,
+      addr: addr,
+      type: evType,
+      active: true,
+      votes: {},
+      comments: {}
+    });
+    created++;
+  });
+
+  saveState();
+  renderVote();
+  renderAdminExtraVotes();
+  closeModal('mo-repeat');
+  showToast('🔁 ' + created + '개 투표가 생성됐습니다!');
+}
+
 function renderAll() {
   renderHome();
   renderVote();
@@ -1449,6 +1601,7 @@ function renderSundayVoteCard(isPast) {
       '</div>' : '') +
     renderVoteGroups(votes) +
     '<button data-panel="tp-sunday" data-type="sunday" data-open="0" onclick="onTeamBtnClick(this)" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--brd);background:var(--c1);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;margin:10px 0 8px">🔴 팀별 참석현황 ▼</button>' +
+    '<div id="tp-sunday" style="display:none;margin-bottom:10px"></div>' +
     '<div class="ct" style="margin-top:4px;margin-bottom:6px">💬 댓글</div>' +
     (comments.length ? '<div style="margin-bottom:8px">'+makeCommentRows(comments,'data-key="SUNDAY"','delComment')+'</div>' : '') +
     '<div style="display:flex;gap:6px">' +
@@ -1562,6 +1715,7 @@ function renderExtraVoteCard(e, isPast) {
     renderVoteGroups(votes) +
     nonVoterSection +
     '<button data-panel="tp-'+e.id+'" data-type="extra" data-evid="'+e.id+'" data-open="0" onclick="onTeamBtnClick(this)" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--brd);background:var(--c1);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;margin:10px 0 8px">🔴 팀별 참석현황 ▼</button>' +
+    '<div id="tp-'+e.id+'" style="display:none;margin-bottom:10px"></div>' +
     '<div class="ct" style="margin-top:4px;margin-bottom:6px">💬 댓글</div>' +
     (thread.length ? '<div style="margin-bottom:8px">'+makeCommentRows(thread,'data-evid="'+e.id+'"','delExtraComment')+'</div>' : '') +
     '<div style="display:flex;gap:6px">' +
