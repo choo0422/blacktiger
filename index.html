@@ -1122,7 +1122,7 @@ function renderTeamAssign() {
     el2.innerHTML = '<div style="color:var(--mut);font-size:13px">팀원을 먼저 등록하세요</div>';
     return;
   }
-  el2.innerHTML = (S.members||[]).map(function(n){
+  el2.innerHTML = (S.members||[]).slice().sort(function(a,b){ return a.localeCompare(b,'ko'); }).map(function(n){
     var cur = mt[n] || '';
     return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--brd)">' +
       '<span style="flex:1;font-size:14px">' + n + '</span>' +
@@ -2472,7 +2472,7 @@ function renderMembersAdmin() {
 
 function renderMembersAdminSorted(by) {
   var joinDate = S.memberJoinDate || {};
-  var sorted = (S.members||[]).slice();
+  var sorted = (S.members||[]).slice().sort(function(a,b){ return a.localeCompare(b,'ko'); });
   if (by === 'date') {
     sorted.sort(function(a,b){
       var da = joinDate[a] || '9999-99-99';
