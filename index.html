@@ -734,28 +734,27 @@ function sbHeaders() {
 }
 
 function saveState() {
-  try { localStorage.setItem(DB_KEY, JSON.stringify(S)); } catch(e) {}
-  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
   var val = JSON.stringify(S);
+  try { localStorage.setItem(DB_KEY, val); } catch(e) {}
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
+
   var headers = sbHeaders();
-  // 먼저 GET으로 존재 확인
-  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY, {
-    method: 'GET', headers: headers
-  }).then(function(r){ return r.json(); }).then(function(rows){
-    if (rows && rows.length > 0) {
-      // 있으면 PATCH
-      fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY, {
-        method: 'PATCH', headers: headers,
-        body: JSON.stringify({ value: val })
-      });
-    } else {
-      // 없으면 POST
-      fetch(SUPABASE_URL + '/rest/v1/gamedata', {
-        method: 'POST', headers: headers,
-        body: JSON.stringify({ key: DB_KEY, value: val })
-      });
-    }
-  }).catch(function(){});
+  // PATCH 먼저 시도 (데이터 있으면 업데이트)
+  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY + '&apikey=' + SUPABASE_KEY, {
+    method: 'PATCH',
+    headers: headers,
+    body: JSON.stringify({ value: val })
+  }).then(function(r) {
+    // PATCH가 0건이면 (데이터 없음) → POST로 생성
+    if (r.status === 200 || r.status === 204) return;
+    return fetch(SUPABASE_URL + '/rest/v1/gamedata?apikey=' + SUPABASE_KEY, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ key: DB_KEY, value: val })
+    });
+  }).catch(function(e) {
+    console.warn('Supabase save error:', e.message);
+  });
 }
 
 function syncSupabase(callback) {
@@ -763,25 +762,41 @@ function syncSupabase(callback) {
     if (callback) callback();
     return;
   }
-  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY + '&select=value', {
+  fetch(SUPABASE_URL + '/rest/v1/gamedata?key=eq.' + DB_KEY + '&select=value&apikey=' + SUPABASE_KEY, {
     method: 'GET', headers: sbHeaders()
-  }).then(function(r){ return r.json(); }).then(function(rows){
+  }).then(function(r) { return r.json(); }).then(function(rows) {
     if (rows && rows.length > 0 && rows[0].value) {
       try {
         var newS = JSON.parse(rows[0].value);
-        if (me && S.votes && S.votes[me]) newS.votes[me] = S.votes[me];
+
+        // 내 투표 보호
+        if (me && S.votes && S.votes[me] !== undefined) {
+          newS.votes[me] = S.votes[me];
+        }
+        // 내 기기 이름 보호
         if (window._deviceId && S.deviceNames && S.deviceNames[window._deviceId]) {
           if (!newS.deviceNames) newS.deviceNames = {};
           newS.deviceNames[window._deviceId] = S.deviceNames[window._deviceId];
         }
+
+        // Supabase 데이터가 로컬보다 오래됐을 경우 대비:
+        // extraVotes는 더 많은 쪽 사용
+        if (S.extraVotes && S.extraVotes.length > (newS.extraVotes||[]).length) {
+          newS.extraVotes = S.extraVotes;
+        }
+        // members도 더 많은 쪽
+        if (S.members && S.members.length > (newS.members||[]).length) {
+          newS.members = S.members;
+        }
+
         S = newS;
         ensureKeys();
-        localStorage.setItem(DB_KEY, rows[0].value);
+        localStorage.setItem(DB_KEY, JSON.stringify(S));
         renderAll();
-      } catch(e) {}
+      } catch(e) { console.warn('sync parse error:', e); }
     }
     if (callback) callback();
-  }).catch(function(e){
+  }).catch(function(e) {
     console.warn('Supabase sync failed:', e.message);
     if (callback) callback();
   });
