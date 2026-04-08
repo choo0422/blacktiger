@@ -1205,22 +1205,21 @@ var repeatCycle = 'week';
 var repeatDays  = [];
 
 function openRepeatModal() {
-  // 현재 폼 값 가져와서 기준으로 설정
-  var stime  = (el('ev-stime')||{}).value || '10:00';
-  var etime  = (el('ev-etime')||{}).value || '12:00';
-  // 날짜 기본값: 오늘부터 4주
-  var today  = new Date();
-  var end    = new Date(); end.setDate(end.getDate() + 28);
-  var fmt    = function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
-  var rpS    = el('rp-start'); if (rpS) rpS.value = fmt(today);
-  var rpE    = el('rp-end');   if (rpE) rpE.value  = fmt(end);
-  // 요일 초기화
-  repeatDays = [];
+  repeatCycle = 'week';
+  repeatDays  = [];
+  var today = new Date();
+  var end   = new Date(); end.setDate(end.getDate() + 28);
+  var fmt   = function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  var rpS = el('rp-start'); if (rpS) rpS.value = fmt(today);
+  var rpE = el('rp-end');   if (rpE) rpE.value  = fmt(end);
+  // 요일 버튼 초기화
   document.querySelectorAll('.rp-day-btn').forEach(function(b){
-    b.style.background = 'transparent';
-    b.style.color      = 'var(--mut)';
+    b.style.background  = 'transparent';
+    b.style.color       = 'var(--mut)';
     b.style.borderColor = 'var(--brd)';
   });
+  // 주기 버튼 초기화
+  setRepeat('week');
   updateRepeatPreview();
   var mo = el('mo-repeat'); if (mo) mo.classList.add('op');
 }
@@ -1299,13 +1298,11 @@ function updateRepeatPreview() {
 }
 
 function createRepeatVotes() {
-  var title   = (el('ev-title')||{}).value.trim() || '정기 운동';
-  var stime   = (el('ev-stime')||{}).value || '10:00';
-  var etime   = (el('ev-etime')||{}).value || '12:00';
-  var addr    = (el('ev-addr')||{}).value.trim();
-  var dlDays  = parseInt((el('rp-dl-days')||{}).value || '2');
-  var dlTime  = (el('rp-dl-time')||{}).value || '19:00';
-  var evType  = window._evType || 'self';
+  var titleInput = (el('ev-title')||{}).value.trim();
+  var stime = (el('ev-stime')||{}).value || '10:00';
+  var etime = (el('ev-etime')||{}).value || '12:00';
+  var addr  = (el('ev-addr')||{}).value.trim();
+  var evType = window._evType || 'self';
 
   var dates = getRepeatDates();
   if (!dates.length) { showToast('날짜와 요일을 선택하세요'); return; }
@@ -1313,17 +1310,26 @@ function createRepeatVotes() {
   if (!S.extraVotes) S.extraVotes = [];
 
   var fmt = function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
-  var dayNames = ['일','월','화','수','목','금','토'];
   var created = 0;
 
   dates.forEach(function(d) {
     var dateStr = fmt(d);
-    // 마감: dlDays일 전
+
+    // 제목 자동생성 (공란이면)
+    var autoTitle = titleInput;
+    if (!autoTitle) {
+      var mm = d.getMonth()+1;
+      var dd = d.getDate();
+      // 시간 형식: HH:MM → H (앞 0 제거)
+      var sh = parseInt(stime.split(':')[0]);
+      var eh = parseInt(etime.split(':')[0]);
+      autoTitle = mm + '월' + dd + '일 ' + sh + '-' + eh;
+    }
+
+    // 마감: 이틀 전 오후 7시
     var dlDate = new Date(d);
-    dlDate.setDate(dlDate.getDate() - dlDays);
+    dlDate.setDate(dlDate.getDate() - 2);
     var dlDateStr = fmt(dlDate);
-    // 제목에 날짜 자동 추가
-    var autoTitle = title + ' ' + (d.getMonth()+1) + '/' + d.getDate() + '(' + dayNames[d.getDay()] + ')';
 
     S.extraVotes.push({
       id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
@@ -1332,7 +1338,7 @@ function createRepeatVotes() {
       stime: stime,
       etime: etime,
       deadlineDate: dlDateStr,
-      deadlineTime: dlTime,
+      deadlineTime: '19:00',
       addr: addr,
       type: evType,
       active: true,
@@ -3122,7 +3128,11 @@ function openNaverMap(addr) {
 }
 
 function createExtraVote() {
-  var title    = (el('ev-title')||{}).value.trim();
+  var titleRaw = (el('ev-title')||{}).value.trim();
+  var stime_t  = (el('ev-stime')||{}).value || '10:00';
+  var etime_t  = (el('ev-etime')||{}).value || '12:00';
+  var date_t   = (el('ev-date')||{}).value;
+  var title    = titleRaw;
   var date     = (el('ev-date')||{}).value;
   var stime    = (el('ev-stime')||{}).value;
   var etime    = (el('ev-etime')||{}).value;
@@ -3414,5 +3424,39 @@ function showToast(msg, dur) {
 
 window.addEventListener('DOMContentLoaded', init);
 </script>
+
+<!-- 반복 투표 생성 모달 -->
+<div class="mo" id="mo-repeat">
+  <div class="mbox" style="max-height:85vh;overflow-y:auto">
+    <h3>🔁 반복 투표 생성</h3>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:12px">마감은 이틀 전 오후 7시로 자동 설정됩니다</div>
+    <div style="font-size:12px;color:var(--txt);margin-bottom:4px;font-weight:700">반복 주기</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button id="rp-week" onclick="setRepeat('week')" style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--g);background:rgba(0,200,83,.1);color:var(--g);font-size:13px;font-weight:700;cursor:pointer">매주</button>
+      <button id="rp-2week" onclick="setRepeat('2week')" style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--brd);background:transparent;color:var(--mut);font-size:13px;font-weight:700;cursor:pointer">2주마다</button>
+    </div>
+    <div style="font-size:12px;color:var(--txt);margin-bottom:4px;font-weight:700">반복 요일</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="rp-day-btn" data-day="0" onclick="toggleRepeatDay(this)" style="padding:8px 14px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);font-size:13px;cursor:pointer">일</button>
+      <button class="rp-day-btn" data-day="1" onclick="toggleRepeatDay(this)" style="padding:8px 14px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);font-size:13px;cursor:pointer">월</button>
+      <button class="rp-day-btn" data-day="2" onclick="toggleRepeatDay(this)" style="padding:8px 14px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);font-size:13px;cursor:pointer">화</button>
+      <button class="rp-day-btn" data-day="3" onclick="toggleRepeatDay(this)" style="padding:8px 14px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);font-size:13px;cursor:pointer">수</button>
+      <button class="rp-day-btn" data-day="4" onclick="toggleRepeatDay(this)" style="padding:8px 14px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);font-size:13px;cursor:pointer">목</button>
+      <button class="rp-day-btn" data-day="5" onclick="toggleRepeatDay(this)" style="padding:8px 14px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);font-size:13px;cursor:pointer">금</button>
+      <button class="rp-day-btn" data-day="6" onclick="toggleRepeatDay(this)" style="padding:8px 14px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--mut);font-size:13px;cursor:pointer">토</button>
+    </div>
+    <div style="font-size:12px;color:var(--txt);margin-bottom:4px;font-weight:700">시작 날짜</div>
+    <input type="date" id="rp-start" oninput="updateRepeatPreview()" style="margin-bottom:8px">
+    <div style="font-size:12px;color:var(--txt);margin-bottom:4px;font-weight:700">종료 날짜</div>
+    <input type="date" id="rp-end" oninput="updateRepeatPreview()" style="margin-bottom:12px">
+    <div style="background:var(--c1);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px" id="rp-preview">
+      <span style="color:var(--mut)">날짜와 요일을 선택하면 미리보기가 표시됩니다</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btno btnsm" onclick="closeModal('mo-repeat')" style="flex:1">취소</button>
+      <button class="btn btng btnsm" onclick="createRepeatVotes()" style="flex:1">생성하기</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
