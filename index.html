@@ -410,7 +410,7 @@ textarea{resize:vertical;min-height:80px}
 
     <!-- 🔴 팀 배정 관리 -->
     <div class="adm-acc">
-      <button class="adm-acc-hd" onclick="toggleAcc('acc-teams')">
+      <button class="adm-acc-hd" onclick="toggleAcc('acc-teams');renderTeamAssign()">
         <span>🔴 팀 배정 관리</span><span class="adm-acc-arr" id="arr-acc-teams">▼</span>
       </button>
       <div class="adm-acc-bd" id="acc-teams" style="display:none">
@@ -2137,6 +2137,7 @@ function renderAdmin() {
   editRules = cloneObj(S.rules || []);
   renderAdminRules();
   renderAdminExtraVotes();
+  renderTeamAssign();
 }
 
 function renderAdminRules() {
