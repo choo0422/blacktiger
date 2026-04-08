@@ -659,7 +659,7 @@ textarea{resize:vertical;min-height:80px}
 // ── CONFIG ──
 var SUPABASE_URL = 'https://httbazqikdcvytytgrba.supabase.co';
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGJhenFpa2Rjdnl0eXRncmJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NzEwNjUsImV4cCI6MjA5MTA0NzA2NX0.EJnFH8dWygTwOl8H4Izfh0GsLMRIhZKiW0tIBAAd3Sw';
-var DB_KEY = 'fmv3';
+var DB_KEY = 'bt_v1';
 
 var WMO_CODE = {
   0:'☀️ 맑음', 1:'🌤️ 대체로맑음', 2:'⛅ 구름조금', 3:'☁️ 흐림',
@@ -816,13 +816,13 @@ function ensureKeys() {
 
 // ── INIT ──
 function init() {
-  var deviceId = localStorage.getItem('hd_deviceId');
+  var deviceId = localStorage.getItem('bt_deviceId');
   if (!deviceId) {
     deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
-    localStorage.setItem('hd_deviceId', deviceId);
+    localStorage.setItem('bt_deviceId', deviceId);
   }
   window._deviceId = deviceId;
-  me = localStorage.getItem('hd_me') || '';
+  me = localStorage.getItem('bt_me') || '';
 
   try {
     var local = localStorage.getItem(DB_KEY);
@@ -832,7 +832,7 @@ function init() {
 
   if (window._deviceId && S.deviceNames && S.deviceNames[window._deviceId]) {
     me = S.deviceNames[window._deviceId];
-    localStorage.setItem('hd_me', me);
+    localStorage.setItem('bt_me', me);
   }
 
   var now = new Date();
@@ -2648,7 +2648,7 @@ function resetDeviceFromRole() {
   Object.keys(dn).forEach(function(k){ if(dn[k]===_roleTargetName) regDid=k; });
   if (!regDid) return;
   delete S.deviceNames[regDid];
-  if (regDid === window._deviceId) { me=''; localStorage.removeItem('hd_me'); updateNameLbl(); }
+  if (regDid === window._deviceId) { me=''; localStorage.removeItem('bt_me'); updateNameLbl(); }
   saveState(); renderAdmin();
   closeModal('mo-role');
   showToast('🔓 ' + _roleTargetName + ' 기기 초기화됐습니다');
@@ -3025,10 +3025,10 @@ function parseMeCoord(val) {
 
 // ── 구장 자동완성 (저장된 구장 목록) ──
 function getStadiums() {
-  try { return JSON.parse(localStorage.getItem('hd_stadiums') || '{}'); } catch(e) { return {}; }
+  try { return JSON.parse(localStorage.getItem('bt_stadiums') || '{}'); } catch(e) { return {}; }
 }
 function saveStadiums(obj) {
-  localStorage.setItem('hd_stadiums', JSON.stringify(obj));
+  localStorage.setItem('bt_stadiums', JSON.stringify(obj));
 }
 
 function autoSaveStadium() {
@@ -3318,7 +3318,7 @@ function deleteDeviceName(btn) {
   if (!S.deviceNames || !S.deviceNames[did]) return;
   var name = S.deviceNames[did];
   delete S.deviceNames[did];
-  if (did === window._deviceId) { me=''; localStorage.removeItem('hd_me'); updateNameLbl(); }
+  if (did === window._deviceId) { me=''; localStorage.removeItem('bt_me'); updateNameLbl(); }
   addHistory('reset', name);
   saveState(); renderAdmin();
   showToast('🔓 '+name+' 초기화됐습니다');
@@ -3335,7 +3335,7 @@ function editDeviceName(btn) {
   if (S.votes && S.votes[name]!==undefined) { S.votes[newName]=S.votes[name]; delete S.votes[name]; }
   if (S.members) { var mi=S.members.indexOf(name); if(mi!==-1) S.members[mi]=newName; }
   S.deviceNames[did] = newName;
-  if (did===window._deviceId) { me=newName; localStorage.setItem('hd_me',me); updateNameLbl(); }
+  if (did===window._deviceId) { me=newName; localStorage.setItem('bt_me',me); updateNameLbl(); }
   saveState(); renderAll(); renderAdmin();
   showToast('✅ '+name+'→'+newName+' 변경됐습니다');
 }
@@ -3377,7 +3377,7 @@ function saveName() {
   var isNewReg = !S.deviceNames[did];
   S.deviceNames[did] = name;
   me = name;
-  localStorage.setItem('hd_me', me);
+  localStorage.setItem('bt_me', me);
   if (isNewReg) addHistory('start', name);
   saveState(); updateNameLbl(); closeModal('mo-name');
   renderVote(); renderStats();
