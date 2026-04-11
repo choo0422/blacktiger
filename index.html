@@ -228,6 +228,19 @@ textarea{resize:vertical;min-height:80px}
 
 <!-- STATS -->
 <div class="pg" id="pg-stats">
+  <!-- MOM 투표 진행 중 -->
+  <div style="font-family:'Noto Sans KR';font-weight:700;font-size:15px;color:var(--yel);margin-bottom:10px;padding:0 2px">🏆 MOM</div>
+  <div class="card" id="sm-vote" style="display:none;border-color:rgba(255,214,0,.35)">
+    <div style="font-family:'Noto Sans KR';font-weight:700;font-size:13px;color:var(--yel);margin-bottom:4px">MOM 투표 진행 중 ⚡</div>
+    <div style="font-size:11px;color:var(--mut);margin-bottom:10px" id="sm-timer">마감까지 계산 중...</div>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:12px">참석자만 · 익명 · 1인 1표</div>
+    <div class="mgrid" id="sm-grid"></div>
+    <div style="height:12px"></div>
+    <button class="btn btng btnsm" onclick="submitMomVote()">⭐ 투표하기</button>
+  </div>
+  <div id="sm-done" style="display:none" class="notice">✅ MOM 투표에 참여했습니다!</div>
+  <div id="sm-noatt" style="display:none" class="notice">오늘 운동 참석자만 MOM 투표에 참여할 수 있습니다</div>
+
   <div class="card">
     <div class="ct">명예의 전당 🏅</div>
     <div id="sm-hall"><div style="color:var(--mut);font-size:13px;text-align:center;padding:8px 0">아직 기록이 없습니다</div></div>
@@ -1913,7 +1926,44 @@ function delExtraComment(btn) {
 }
 
 // ── STATS & MOM ──
+function renderMomSection() {
+  var smVote  = el('sm-vote');
+  var smDone  = el('sm-done');
+  var smNoatt = el('sm-noatt');
+  if (!smVote) return;
+
+  checkMomExpiry();
+
+  smVote.style.display  = 'none';
+  smDone.style.display  = 'none';
+  smNoatt.style.display = 'none';
+
+  if (!S.momActive || !S.momDeadline) return;
+
+  var deadline = new Date(S.momDeadline);
+  var timer = el('sm-timer');
+  if (timer) timer.textContent = '마감까지 ' + deadlineDiffStr(deadline);
+
+  var last   = S.matches && S.matches.length ? S.matches[S.matches.length-1] : null;
+  var isAtt  = last && last.attendees && last.attendees.indexOf(me) !== -1;
+  var voted  = S.momVoters && S.momVoters[me];
+
+  if (voted) {
+    smDone.style.display = 'block';
+  } else if (isAtt) {
+    smVote.style.display = 'block';
+    var attList = (last.attendees||[]).filter(function(n){ return n !== me; });
+    setHTML('sm-grid', attList.map(function(n){
+      var sel = selMomName === n;
+      return '<div class="mpl'+(sel?' sel':'')+' data-name="'+n+'" onclick="pickMomBtn(this)">⚽ '+n+'</div>';
+    }).join(''));
+  } else {
+    smNoatt.style.display = 'block';
+  }
+}
+
 function renderStats() {
+  renderMomSection();
   // 명예의 전당
   var momCnt = {};
   (S.matches||[]).forEach(function(m){ if (m.mom) momCnt[m.mom]=(momCnt[m.mom]||0)+1; });
@@ -1994,6 +2044,14 @@ function renderPastMom() {
 function pickHomeMom(elem) {
   selMomName = elem.getAttribute('data-name');
   var items = elem.parentNode.querySelectorAll('.mpl');
+  for (var i=0;i<items.length;i++) items[i].classList.remove('sel');
+  elem.classList.add('sel');
+}
+
+
+function pickMomBtn(elem) {
+  selMomName = elem.getAttribute('data-name');
+  var items = document.querySelectorAll('.mpl');
   for (var i=0;i<items.length;i++) items[i].classList.remove('sel');
   elem.classList.add('sel');
 }
